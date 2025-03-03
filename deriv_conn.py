@@ -27,8 +27,7 @@ class DerivConnection:
             await self.connect()
         balance = await self.api.balance()
         print("Resposta completa do saldo:", balance)  # Depuração
-        # Ajuste com base na estrutura real da resposta
-        return balance.get('total', {}).get('amount', 0)  # Ajustado para estrutura comum
+        return balance['balance']['balance']  # Ajustado para a estrutura real
 
     async def buy_contract(self, contract_type, symbol, duration, stake, barrier=None):
         """Compra um contrato e retorna o contract_id."""
@@ -42,6 +41,7 @@ class DerivConnection:
                 "symbol": symbol,
                 "duration": duration,
                 "duration_unit": "s",
+                "currency": "USD"  # Adicionado conforme exigência da API
             }
         }
         if barrier:
