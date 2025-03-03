@@ -1,6 +1,6 @@
 import asyncio
 from deriv_api import DerivAPI
-from config import APP_ID, API_TOKEN  # Importa do config.py
+from config import APP_ID, API_TOKEN
 
 class DerivConnection:
     def __init__(self):
@@ -26,7 +26,9 @@ class DerivConnection:
         if not self.api:
             await self.connect()
         balance = await self.api.balance()
-        return balance['balance']['amount']
+        print("Resposta completa do saldo:", balance)  # Depuração
+        # Ajuste com base na estrutura real da resposta
+        return balance.get('total', {}).get('amount', 0)  # Ajustado para estrutura comum
 
     async def buy_contract(self, contract_type, symbol, duration, stake, barrier=None):
         """Compra um contrato e retorna o contract_id."""
@@ -36,7 +38,7 @@ class DerivConnection:
             "buy": 1,
             "price": stake,
             "parameters": {
-                "contract_type": contract_type,  # "CALL" ou "PUT"
+                "contract_type": contract_type,
                 "symbol": symbol,
                 "duration": duration,
                 "duration_unit": "s",
@@ -48,14 +50,14 @@ class DerivConnection:
         return response["buy"]["contract_id"]
 
     async def get_contract_details(self, contract_id):
-        """Obtém detalhes de um contrato, incluindo resultado."""
+        """Obtém detalhes de um contrato."""
         if not self.api:
             await self.connect()
         details = await self.api.contract({"contract_id": contract_id})
         return details
 
     async def subscribe_ticks(self, symbol, callback):
-        """Subscreve a um stream de ticks em tempo real."""
+        """Subscreve a um stream de ticks."""
         if not self.api:
             await self.connect()
         subscription = await self.api.subscribe({
@@ -63,10 +65,10 @@ class DerivConnection:
             "subscribe": 1
         })
         async for tick in subscription:
-            await callback(tick["tick"]["quote"])  # Passa o preço atual
+            await callback(tick["tick"]["quote"])
 
     async def tick_callback(self, price):
-        """Callback padrão para exibir ticks."""
+        """Callback para ticks."""
         print(f"Preço atual: {price}")
 
     async def wait_contract_result(self, contract_id):
@@ -75,29 +77,22 @@ class DerivConnection:
             await self.connect()
         while True:
             details = await self.get_contract_details(contract_id)
-            if details.get("is_sold", 0) == 1:  # Contrato concluído
+            if details.get("is_sold", 0) == 1:
                 profit = details.get("profit", 0)
                 return profit
-            await asyncio.sleep(1)  # Aguarda 1 segundo antes de verificar novamente
+            await asyncio.sleep(1)
 
     async def test(self):
-        """Teste básico da conexão e funcionalidades."""
+        """Teste básico da conexão."""
         await self.connect()
         balance = await self.get_balance()
         print(f"Saldo inicial: {balance}")
-        
-        # Compra um contrato de teste
         contract_id = await self.buy_contract("CALL", "R_10", 300, 0.35, "+0.1")
         print(f"Contrato ID: {contract_id}")
-        
-        # Espera o resultado do contrato
         profit = await self.wait_contract_result(contract_id)
         print(f"Resultado do contrato: {profit}")
-        
-        # Subscreve ticks por 10 segundos
         await self.subscribe_ticks("R_10", self.tick_callback)
         await asyncio.sleep(10)
-        
         await self.disconnect()
 
 if __name__ == "__main__":
