@@ -1,3 +1,14 @@
+# Ignorar arquivos temporários e de build da ta-lib
+ta-lib/
+ta-lib-*.tar.gz
+*.o
+*.lo
+*.la
+*.so
+*.a
+*.tar.gz
+
+
 secrets.csv
 *.swo
 *.swp
