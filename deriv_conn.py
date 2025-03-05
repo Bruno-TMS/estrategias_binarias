@@ -26,8 +26,8 @@ class DerivConnection:
         if not self.api:
             await self.connect()
         balance = await self.api.balance()
-        print("Resposta completa do saldo:", balance)  # Depuração
-        return balance['balance']['balance']  # Ajustado para a estrutura real
+        print("Resposta completa do saldo:", balance)
+        return balance['balance']['balance']
 
     async def buy_contract(self, contract_type, symbol, duration, stake, barrier=None):
         """Compra um contrato e retorna o contract_id."""
@@ -35,17 +35,18 @@ class DerivConnection:
             await self.connect()
         trade = {
             "buy": 1,
-            "price": stake,
+            "price": stake,  # Valor da aposta no nível superior
             "parameters": {
-                "contract_type": contract_type,
+                "contract_type": contract_type,  # "CALL" ou "PUT"
                 "symbol": symbol,
                 "duration": duration,
                 "duration_unit": "s",
-                "currency": "USD"  # Adicionado conforme exigência da API
+                "currency": "USD"
             }
         }
         if barrier:
             trade["parameters"]["barrier"] = barrier
+        print("Requisição enviada:", trade)  # Depuração
         response = await self.api.buy(trade)
         return response["buy"]["contract_id"]
 
@@ -83,18 +84,4 @@ class DerivConnection:
             await asyncio.sleep(1)
 
     async def test(self):
-        """Teste básico da conexão."""
-        await self.connect()
-        balance = await self.get_balance()
-        print(f"Saldo inicial: {balance}")
-        contract_id = await self.buy_contract("CALL", "R_10", 300, 0.35, "+0.1")
-        print(f"Contrato ID: {contract_id}")
-        profit = await self.wait_contract_result(contract_id)
-        print(f"Resultado do contrato: {profit}")
-        await self.subscribe_ticks("R_10", self.tick_callback)
-        await asyncio.sleep(10)
-        await self.disconnect()
-
-if __name__ == "__main__":
-    conn = DerivConnection()
-    asyncio.run(conn.test())
+        ""
