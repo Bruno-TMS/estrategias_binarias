@@ -11,9 +11,12 @@ class DerivConnection:
 
     async def connect(self):
         """Conecta à Deriv API."""
-        self.api = DerivAPI(app_id=self.app_id)
-        await self.api.authorize(self.api_token)
-        print("Conectado à Deriv API com sucesso!")
+        try:
+            self.api = DerivAPI(app_id=self.app_id)
+            auth_response = await self.api.authorize(self.api_token)
+            print("Conectado à Deriv API com sucesso!", auth_response)
+        except Exception as e:
+            print(f"Erro ao conectar: {e}")
 
     async def disconnect(self):
         """Desconecta da API."""
@@ -35,9 +38,9 @@ class DerivConnection:
             await self.connect()
         trade = {
             "buy": 1,
-            "price": stake,  # Valor da aposta no nível superior
+            "price": stake,
             "parameters": {
-                "contract_type": contract_type,  # "CALL" ou "PUT"
+                "contract_type": contract_type,
                 "symbol": symbol,
                 "duration": duration,
                 "duration_unit": "s",
@@ -46,7 +49,7 @@ class DerivConnection:
         }
         if barrier:
             trade["parameters"]["barrier"] = barrier
-        print("Requisição enviada:", trade)  # Depuração
+        print("Requisição enviada:", trade)
         response = await self.api.buy(trade)
         return response["buy"]["contract_id"]
 
@@ -84,4 +87,16 @@ class DerivConnection:
             await asyncio.sleep(1)
 
     async def test(self):
-        ""
+        """Testa a conexão e o saldo."""
+        await self.connect()
+        balance = await self.get_balance()
+        print(f"Saldo da conta: {balance}")
+        await self.disconnect()
+
+# Executa o teste
+async def main():
+    deriv = DerivConnection()
+    await deriv.test()
+
+if __name__ == "__main__":
+    asyncio.run(main())
