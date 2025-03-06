@@ -11,4 +11,4 @@ config = load_config()
 API_TOKEN = "5lQ6GcWHV5cuHLc"  # Usando o token do secrets.csv
 SYMBOL = config['symbol']
 INITIAL_STAKE = config['stake']
-DURATION = 0.25  # Ajustado para 15 segundos (0.25 minutos)
+DURATION = 1  # Ajustado para 1 minuto

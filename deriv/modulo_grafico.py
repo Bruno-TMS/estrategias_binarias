@@ -53,12 +53,15 @@ class GraficoGUI:
 
     async def connect(self):
         try:
-            await self.conn.connect()
+            await self.connect_to_api()
             await self.update_balance()
             # Habilita o botão apenas após a conexão e saldo
             self.buy_button.config(state=tk.NORMAL)
         except Exception as e:
             print(f"Erro ao conectar: {e}")
+
+    async def connect_to_api(self):
+        await self.conn.connect()
 
     async def update_balance(self):
         try:

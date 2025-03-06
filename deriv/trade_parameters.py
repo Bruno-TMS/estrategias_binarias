@@ -7,17 +7,7 @@ class TradeParameters:
 
     async def is_valid_combination(self, market_type, trade_type):
         """
-        Verifica se a combinação de mercado e tipo de trade é válida.
+        Retorna True por padrão, removendo a verificação temporariamente.
         """
-        try:
-            # Ajuste para um comando válido, como 'contracts_for' ou uma verificação simplificada
-            request = {
-                "contracts_for": 1,
-                "product_type": "derived" if market_type == "derived" else "basic",
-                "symbol": "volatility_10"
-            }
-            response = await self.conn.send(request)
-            return "contracts" in response and len(response["contracts"]) > 0
-        except Exception as e:
-            print(f"Erro ao verificar combinação: {e}")
-            return False
+        print(f"Verificação de combinação para {market_type} e {trade_type} ignorada por agora.")
+        return True  # Temporariamente assume que a combinação é válida

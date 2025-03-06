@@ -1,5 +1,5 @@
 numpy==1.21.6
-python-deriv-api==0.1.6
+python-deriv-api==0.2.0
 reactivex==4.0.4
 TA-Lib==0.4.28
 typing_extensions==4.12.2

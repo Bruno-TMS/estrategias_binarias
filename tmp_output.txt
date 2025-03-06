@@ -1,19 +1,215 @@
 (.venv) btms@DESK-BTMS:~/github_projects/estrategias_binarias$ python -m deriv.main
-Iniciando a interface gráfica...
+Iniciando testes de conexão...
+Horário inicial da conexão: 2025-03-06 18:31:35.187834
+Credenciais carregadas: app_id=69493, api_token=Htv5Z...
 Iniciando conexão com a API...
-Conexão ativa. Tipo de conta: DEMO
-Resposta do saldo: {'balance': {'balance': 12295.75, 'currency': 'USD', 'loginid': 'VRTC1487910'}, 'echo_req': {'balance': 1, 'req_id': 2}, 'msg_type': 'balance', 'req_id': 2}
+Conexão ativa. Tipo de conta: demo
+Ativos disponíveis:
+Symbol: WLDAUD, Display Name: AUD Basket, Trading Available: True
+Symbol: frxAUDCAD, Display Name: AUD/CAD, Trading Available: True
+Symbol: frxAUDCHF, Display Name: AUD/CHF, Trading Available: True
+Symbol: frxAUDJPY, Display Name: AUD/JPY, Trading Available: True
+Symbol: frxAUDNZD, Display Name: AUD/NZD, Trading Available: True
+Symbol: frxAUDUSD, Display Name: AUD/USD, Trading Available: True
+Symbol: OTC_AS51, Display Name: Australia 200, Trading Available: True
+Symbol: cryBTCUSD, Display Name: BTC/USD, Trading Available: True
+Symbol: RDBEAR, Display Name: Bear Market Index, Trading Available: True
+Symbol: BOOM300N, Display Name: Boom 300 Index, Trading Available: True
+Symbol: BOOM500, Display Name: Boom 500 Index, Trading Available: True
+Symbol: BOOM600, Display Name: Boom 600 Index, Trading Available: True
+Symbol: BOOM900, Display Name: Boom 900 Index, Trading Available: True
+Symbol: BOOM1000, Display Name: Boom 1000 Index, Trading Available: True
+Symbol: RDBULL, Display Name: Bull Market Index, Trading Available: True
+Symbol: CRASH300N, Display Name: Crash 300 Index, Trading Available: True
+Symbol: CRASH500, Display Name: Crash 500 Index, Trading Available: True
+Symbol: CRASH600, Display Name: Crash 600 Index, Trading Available: True
+Symbol: CRASH900, Display Name: Crash 900 Index, Trading Available: True
+Symbol: CRASH1000, Display Name: Crash 1000 Index, Trading Available: True
+Symbol: cryETHUSD, Display Name: ETH/USD, Trading Available: True
+Symbol: WLDEUR, Display Name: EUR Basket, Trading Available: True
+Symbol: frxEURAUD, Display Name: EUR/AUD, Trading Available: True
+Symbol: frxEURCAD, Display Name: EUR/CAD, Trading Available: True
+Symbol: frxEURCHF, Display Name: EUR/CHF, Trading Available: True
+Symbol: frxEURGBP, Display Name: EUR/GBP, Trading Available: True
+Symbol: frxEURJPY, Display Name: EUR/JPY, Trading Available: True
+Symbol: frxEURNZD, Display Name: EUR/NZD, Trading Available: True
+Symbol: frxEURUSD, Display Name: EUR/USD, Trading Available: True
+Symbol: OTC_SX5E, Display Name: Euro 50, Trading Available: True
+Symbol: OTC_FCHI, Display Name: France 40, Trading Available: True
+Symbol: WLDGBP, Display Name: GBP Basket, Trading Available: True
+Symbol: frxGBPAUD, Display Name: GBP/AUD, Trading Available: True
+Symbol: frxGBPCAD, Display Name: GBP/CAD, Trading Available: True
+Symbol: frxGBPCHF, Display Name: GBP/CHF, Trading Available: True
+Symbol: frxGBPJPY, Display Name: GBP/JPY, Trading Available: True
+Symbol: frxGBPNOK, Display Name: GBP/NOK, Trading Available: True
+Symbol: frxGBPNZD, Display Name: GBP/NZD, Trading Available: True
+Symbol: frxGBPUSD, Display Name: GBP/USD, Trading Available: True
+Symbol: OTC_GDAXI, Display Name: Germany 40, Trading Available: True
+Symbol: WLDXAU, Display Name: Gold Basket, Trading Available: True
+Symbol: frxXAUUSD, Display Name: Gold/USD, Trading Available: True
+Symbol: OTC_HSI, Display Name: Hong Kong 50, Trading Available: True
+Symbol: OTC_N225, Display Name: Japan 225, Trading Available: True
+Symbol: JD10, Display Name: Jump 10 Index, Trading Available: True
+Symbol: JD25, Display Name: Jump 25 Index, Trading Available: True
+Symbol: JD50, Display Name: Jump 50 Index, Trading Available: True
+Symbol: JD75, Display Name: Jump 75 Index, Trading Available: True
+Symbol: JD100, Display Name: Jump 100 Index, Trading Available: True
+Symbol: frxNZDJPY, Display Name: NZD/JPY, Trading Available: True
+Symbol: frxNZDUSD, Display Name: NZD/USD, Trading Available: True
+Symbol: OTC_AEX, Display Name: Netherlands 25, Trading Available: True
+Symbol: frxXPDUSD, Display Name: Palladium/USD, Trading Available: True
+Symbol: frxXPTUSD, Display Name: Platinum/USD, Trading Available: True
+Symbol: frxXAGUSD, Display Name: Silver/USD, Trading Available: True
+Symbol: stpRNG, Display Name: Step Index 100, Trading Available: True
+Symbol: stpRNG2, Display Name: Step Index 200, Trading Available: True
+Symbol: stpRNG3, Display Name: Step Index 300, Trading Available: True
+Symbol: stpRNG4, Display Name: Step Index 400, Trading Available: True
+Symbol: stpRNG5, Display Name: Step Index 500, Trading Available: True
+Symbol: OTC_SSMI, Display Name: Swiss 20, Trading Available: True
+Symbol: OTC_FTSE, Display Name: UK 100, Trading Available: True
+Symbol: OTC_SPC, Display Name: US 500, Trading Available: True
+Symbol: OTC_NDX, Display Name: US Tech 100, Trading Available: True
+Symbol: WLDUSD, Display Name: USD Basket, Trading Available: True
+Symbol: frxUSDCAD, Display Name: USD/CAD, Trading Available: True
+Symbol: frxUSDCHF, Display Name: USD/CHF, Trading Available: True
+Symbol: frxUSDJPY, Display Name: USD/JPY, Trading Available: True
+Symbol: frxUSDMXN, Display Name: USD/MXN, Trading Available: True
+Symbol: frxUSDNOK, Display Name: USD/NOK, Trading Available: True
+Symbol: frxUSDPLN, Display Name: USD/PLN, Trading Available: True
+Symbol: frxUSDSEK, Display Name: USD/SEK, Trading Available: True
+Symbol: 1HZ10V, Display Name: Volatility 10 (1s) Index, Trading Available: True
+Symbol: R_10, Display Name: Volatility 10 Index, Trading Available: True
+Symbol: 1HZ25V, Display Name: Volatility 25 (1s) Index, Trading Available: True
+Symbol: R_25, Display Name: Volatility 25 Index, Trading Available: True
+Symbol: 1HZ50V, Display Name: Volatility 50 (1s) Index, Trading Available: True
+Symbol: R_50, Display Name: Volatility 50 Index, Trading Available: True
+Symbol: 1HZ75V, Display Name: Volatility 75 (1s) Index, Trading Available: True
+Symbol: R_75, Display Name: Volatility 75 Index, Trading Available: True
+Symbol: 1HZ100V, Display Name: Volatility 100 (1s) Index, Trading Available: True
+Symbol: R_100, Display Name: Volatility 100 Index, Trading Available: True
+Symbol: 1HZ150V, Display Name: Volatility 150 (1s) Index, Trading Available: True
+Symbol: 1HZ250V, Display Name: Volatility 250 (1s) Index, Trading Available: True
+Symbol: OTC_DJI, Display Name: Wall Street 30, Trading Available: True
+Status: Saldo disponível: $12295.75
+Conexão ok! Tempo total de conexão: 1.46 segundos
+Iniciando a interface gráfica...
+Credenciais carregadas: app_id=69493, api_token=Htv5Z...
+Iniciando conexão com a API...
+Iniciando conexão com a API...
+Conexão ativa. Tipo de conta: demo
+Ativos disponíveis:
+Symbol: WLDAUD, Display Name: AUD Basket, Trading Available: True
+Symbol: frxAUDCAD, Display Name: AUD/CAD, Trading Available: True
+Symbol: frxAUDCHF, Display Name: AUD/CHF, Trading Available: True
+Symbol: frxAUDJPY, Display Name: AUD/JPY, Trading Available: True
+Symbol: frxAUDNZD, Display Name: AUD/NZD, Trading Available: True
+Symbol: frxAUDUSD, Display Name: AUD/USD, Trading Available: True
+Symbol: OTC_AS51, Display Name: Australia 200, Trading Available: True
+Symbol: cryBTCUSD, Display Name: BTC/USD, Trading Available: True
+Symbol: RDBEAR, Display Name: Bear Market Index, Trading Available: True
+Symbol: BOOM300N, Display Name: Boom 300 Index, Trading Available: True
+Symbol: BOOM500, Display Name: Boom 500 Index, Trading Available: True
+Symbol: BOOM600, Display Name: Boom 600 Index, Trading Available: True
+Symbol: BOOM900, Display Name: Boom 900 Index, Trading Available: True
+Symbol: BOOM1000, Display Name: Boom 1000 Index, Trading Available: True
+Symbol: RDBULL, Display Name: Bull Market Index, Trading Available: True
+Symbol: CRASH300N, Display Name: Crash 300 Index, Trading Available: True
+Symbol: CRASH500, Display Name: Crash 500 Index, Trading Available: True
+Symbol: CRASH600, Display Name: Crash 600 Index, Trading Available: True
+Symbol: CRASH900, Display Name: Crash 900 Index, Trading Available: True
+Symbol: CRASH1000, Display Name: Crash 1000 Index, Trading Available: True
+Symbol: cryETHUSD, Display Name: ETH/USD, Trading Available: True
+Symbol: WLDEUR, Display Name: EUR Basket, Trading Available: True
+Symbol: frxEURAUD, Display Name: EUR/AUD, Trading Available: True
+Symbol: frxEURCAD, Display Name: EUR/CAD, Trading Available: True
+Symbol: frxEURCHF, Display Name: EUR/CHF, Trading Available: True
+Symbol: frxEURGBP, Display Name: EUR/GBP, Trading Available: True
+Symbol: frxEURJPY, Display Name: EUR/JPY, Trading Available: True
+Symbol: frxEURNZD, Display Name: EUR/NZD, Trading Available: True
+Symbol: frxEURUSD, Display Name: EUR/USD, Trading Available: True
+Symbol: OTC_SX5E, Display Name: Euro 50, Trading Available: True
+Symbol: OTC_FCHI, Display Name: France 40, Trading Available: True
+Symbol: WLDGBP, Display Name: GBP Basket, Trading Available: True
+Symbol: frxGBPAUD, Display Name: GBP/AUD, Trading Available: True
+Symbol: frxGBPCAD, Display Name: GBP/CAD, Trading Available: True
+Symbol: frxGBPCHF, Display Name: GBP/CHF, Trading Available: True
+Symbol: frxGBPJPY, Display Name: GBP/JPY, Trading Available: True
+Symbol: frxGBPNOK, Display Name: GBP/NOK, Trading Available: True
+Symbol: frxGBPNZD, Display Name: GBP/NZD, Trading Available: True
+Symbol: frxGBPUSD, Display Name: GBP/USD, Trading Available: True
+Symbol: OTC_GDAXI, Display Name: Germany 40, Trading Available: True
+Symbol: WLDXAU, Display Name: Gold Basket, Trading Available: True
+Symbol: frxXAUUSD, Display Name: Gold/USD, Trading Available: True
+Symbol: OTC_HSI, Display Name: Hong Kong 50, Trading Available: True
+Symbol: OTC_N225, Display Name: Japan 225, Trading Available: True
+Symbol: JD10, Display Name: Jump 10 Index, Trading Available: True
+Symbol: JD25, Display Name: Jump 25 Index, Trading Available: True
+Symbol: JD50, Display Name: Jump 50 Index, Trading Available: True
+Symbol: JD75, Display Name: Jump 75 Index, Trading Available: True
+Symbol: JD100, Display Name: Jump 100 Index, Trading Available: True
+Symbol: frxNZDJPY, Display Name: NZD/JPY, Trading Available: True
+Symbol: frxNZDUSD, Display Name: NZD/USD, Trading Available: True
+Symbol: OTC_AEX, Display Name: Netherlands 25, Trading Available: True
+Symbol: frxXPDUSD, Display Name: Palladium/USD, Trading Available: True
+Symbol: frxXPTUSD, Display Name: Platinum/USD, Trading Available: True
+Symbol: frxXAGUSD, Display Name: Silver/USD, Trading Available: True
+Symbol: stpRNG, Display Name: Step Index 100, Trading Available: True
+Symbol: stpRNG2, Display Name: Step Index 200, Trading Available: True
+Symbol: stpRNG3, Display Name: Step Index 300, Trading Available: True
+Symbol: stpRNG4, Display Name: Step Index 400, Trading Available: True
+Symbol: stpRNG5, Display Name: Step Index 500, Trading Available: True
+Symbol: OTC_SSMI, Display Name: Swiss 20, Trading Available: True
+Symbol: OTC_FTSE, Display Name: UK 100, Trading Available: True
+Symbol: OTC_SPC, Display Name: US 500, Trading Available: True
+Symbol: OTC_NDX, Display Name: US Tech 100, Trading Available: True
+Symbol: WLDUSD, Display Name: USD Basket, Trading Available: True
+Symbol: frxUSDCAD, Display Name: USD/CAD, Trading Available: True
+Symbol: frxUSDCHF, Display Name: USD/CHF, Trading Available: True
+Symbol: frxUSDJPY, Display Name: USD/JPY, Trading Available: True
+Symbol: frxUSDMXN, Display Name: USD/MXN, Trading Available: True
+Symbol: frxUSDNOK, Display Name: USD/NOK, Trading Available: True
+Symbol: frxUSDPLN, Display Name: USD/PLN, Trading Available: True
+Symbol: frxUSDSEK, Display Name: USD/SEK, Trading Available: True
+Symbol: 1HZ10V, Display Name: Volatility 10 (1s) Index, Trading Available: True
+Symbol: R_10, Display Name: Volatility 10 Index, Trading Available: True
+Symbol: 1HZ25V, Display Name: Volatility 25 (1s) Index, Trading Available: True
+Symbol: R_25, Display Name: Volatility 25 Index, Trading Available: True
+Symbol: 1HZ50V, Display Name: Volatility 50 (1s) Index, Trading Available: True
+Symbol: R_50, Display Name: Volatility 50 Index, Trading Available: True
+Symbol: 1HZ75V, Display Name: Volatility 75 (1s) Index, Trading Available: True
+Symbol: R_75, Display Name: Volatility 75 Index, Trading Available: True
+Symbol: 1HZ100V, Display Name: Volatility 100 (1s) Index, Trading Available: True
+Symbol: R_100, Display Name: Volatility 100 Index, Trading Available: True
+Symbol: 1HZ150V, Display Name: Volatility 150 (1s) Index, Trading Available: True
+Symbol: 1HZ250V, Display Name: Volatility 250 (1s) Index, Trading Available: True
+Symbol: OTC_DJI, Display Name: Wall Street 30, Trading Available: True
+Resposta do saldo: {'balance': {'balance': 12295.75, 'currency': 'USD', 'loginid': 'VRTC1487910'}, 'echo_req': {'balance': 1, 'req_id': 3}, 'msg_type': 'balance', 'req_id': 3}
 Saldo atualizado na interface: $12295.75
-Botão Comprar clicado! Tipo de contrato: rise, Stake: $1.0, Duração: 0.25 minutos
-Erro ao verificar combinação: ResponseError: Input validation failed: Properties not allowed: symbol.
-Combinação inválida!
+Botão Comprar clicado! Tipo de contrato: rise, Stake: $1.0, Duração: 1.0 minutos
+Credenciais carregadas: app_id=69493, api_token=Htv5Z...
+Verificando combinação para higher_lower
+Verificação de combinação para derived e higher_lower ignorada por agora.
+Combinação válida. Iniciando compra para volatility_10
+Validando contrato com requisição: {'proposal': 1, 'amount': 1.0, 'basis': 'stake', 'contract_type': 'HIGHER', 'symbol': 'volatility_10', 'duration': 60, 'duration_unit': 's', 'currency': 'USD'}
+Inicializando API...
+Erro na requisição: ResponseError: Input validation failed: contract_type
+Erro ao executar o robô: ResponseError: Input validation failed: contract_type
 Fechando a janela...
-(.venv) btms@DESK-BTMS:~/github_projects/estrategias_binarias$ 
-
-
-
-
-
-
-
-
+2025-03-06 18:32:22,067 Task exception was never retrieved
+future: <Task finished name='Task-10' coro=<DerivedBot.run() done, defined at /home/btms/github_projects/estrategias_binarias/deriv/autobots.py:14> exception=ResponseError('Input validation failed: contract_type')>
+Traceback (most recent call last):
+  File "/usr/lib/python3.10/asyncio/tasks.py", line 234, in __step
+    result = coro.throw(exc)
+  File "/home/btms/github_projects/estrategias_binarias/deriv/autobots.py", line 33, in run
+    proposal_response = await self.conn.send(proposal_request)
+  File "/home/btms/github_projects/estrategias_binarias/deriv/connect.py", line 64, in send
+    response = await self.api.send(request)
+  File "/home/btms/github_projects/estrategias_binarias/.venv/lib/python3.10/site-packages/deriv_api/deriv_api.py", line 264, in send
+    response = await response_future
+  File "/usr/lib/python3.10/asyncio/futures.py", line 285, in __await__
+    yield self  # This tells Task to wait for completion.
+  File "/usr/lib/python3.10/asyncio/tasks.py", line 304, in __wakeup
+    future.result()
+  File "/usr/lib/python3.10/asyncio/futures.py", line 201, in result
+    raise self._exception.with_traceback(self._exception_tb)
+deriv_api.errors.ResponseError: ResponseError: Input validation failed: contract_type
