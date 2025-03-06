@@ -1,10 +1,11 @@
-Iniciando a interface gráfica...
+Script started on 2025-03-06 13:31:34-03:00 [TERM="xterm-256color" TTY="/dev/pts/7" COLUMNS="63" LINES="11"]
+[?2004h]0;btms@DESK-BTMS: ~/github_projects/estrategias_binarias[01;32mbtms@DESK-BTMS[00m:[01;34m~/github_projects/estrategias_binarias[00m$ [7mpython -[27m[7mm[27m[7m deriv.main[27m[A]0;btms@DESK-BTMS: ~/github_projects/estrategias_binarias[01;32mbtms@DESK-BTMS[00m:[01;34m~/github_projects/estrategias_binarias[00m$ python -m deriv.main
+[?2004lIniciando a interface gráfica...
 Iniciando conexão com a API...
 Conexão ativa. Tipo de conta: DEMO
-Erro ao conectar: 'Connection' object has no attribute 'send_request'
 Botão Comprar CALL clicado!
-2025-03-06 12:33:22,521 Task exception was never retrieved
-future: <Task finished name='Task-22' coro=<DerivedBot.run() done, defined at /home/btms/github_projects/estrategias_binarias/deriv/autobots.py:16> exception=ResponseError('Unrecognised request')>
+2025-03-06 13:32:04,825 Task exception was never retrieved
+future: <Task finished name='Task-23' coro=<DerivedBot.run() done, defined at /home/btms/github_projects/estrategias_binarias/deriv/autobots.py:16> exception=ResponseError('Unrecognised request')>
 Traceback (most recent call last):
   File "/home/btms/github_projects/estrategias_binarias/deriv/autobots.py", line 17, in run
     if await self.params.is_valid_combination("derived", self.trade_type):
@@ -15,20 +16,22 @@ Traceback (most recent call last):
   File "/home/btms/github_projects/estrategias_binarias/.venv/lib/python3.10/site-packages/deriv_api/deriv_api.py", line 264, in send
     response = await response_future
 deriv_api.errors.ResponseError: ResponseError: Unrecognised request
-Botão Comprar CALL clicado!
-2025-03-06 12:33:40,328 Task exception was never retrieved
-future: <Task finished name='Task-24' coro=<DerivedBot.run() done, defined at /home/btms/github_projects/estrategias_binarias/deriv/autobots.py:16> exception=ResponseError('Unrecognised request')>
-Traceback (most recent call last):
-  File "/home/btms/github_projects/estrategias_binarias/deriv/autobots.py", line 17, in run
-    if await self.params.is_valid_combination("derived", self.trade_type):
-  File "/home/btms/github_projects/estrategias_binarias/deriv/trade_parameters.py", line 21, in is_valid_combination
-    response = await self.conn.send({"available_contracts": 1, "market": market_type})  # Usar send
-  File "/home/btms/github_projects/estrategias_binarias/deriv/connect.py", line 37, in send
-    return await self.api.send(request)
-  File "/home/btms/github_projects/estrategias_binarias/.venv/lib/python3.10/site-packages/deriv_api/deriv_api.py", line 264, in send
-    response = await response_future
-deriv_api.errors.ResponseError: ResponseError: Unrecognised request
-Fechando a janela...
+^C
+^CTraceback (most recent call last):
+  File "/usr/lib/python3.10/asyncio/runners.py", line 44, in run
+    return loop.run_until_complete(main)
+  File "/usr/lib/python3.10/asyncio/base_events.py", line 636, in run_until_complete
+    self.run_forever()
+  File "/usr/lib/python3.10/asyncio/base_events.py", line 603, in run_forever
+    self._run_once()
+  File "/usr/lib/python3.10/asyncio/base_events.py", line 1871, in _run_once
+    event_list = self._selector.select(timeout)
+  File "/usr/lib/python3.10/selectors.py", line 469, in select
+    fd_event_list = self._selector.poll(timeout, max_ev)
+KeyboardInterrupt
+
+During handling of the above exception, another exception occurred:
+
 Traceback (most recent call last):
   File "/usr/lib/python3.10/runpy.py", line 196, in _run_module_as_main
     return _run_code(code, main_globals, None,
@@ -49,30 +52,8 @@ Traceback (most recent call last):
   File "/usr/lib/python3.10/selectors.py", line 469, in select
     fd_event_list = self._selector.poll(timeout, max_ev)
 KeyboardInterrupt
-2025-03-06 12:33:46,709 Task was destroyed but it is pending!
-task: <Task pending name='Task-21' coro=<WebSocketCommonProtocol.close_connection() running at /home/btms/github_projects/estrategias_binarias/.venv/lib/python3.10/site-packages/websockets/legacy/protocol.py:1299> wait_for=<Future pending cb=[Task.task_wakeup()]> cb=[gather.<locals>._done_callback() at /usr/lib/python3.10/asyncio/tasks.py:720]>
-2025-03-06 12:33:46,710 Task was destroyed but it is pending!
-task: <Task pending name='Task-18' coro=<WebSocketCommonProtocol.close_connection() running at /home/btms/github_projects/estrategias_binarias/.venv/lib/python3.10/site-packages/websockets/legacy/protocol.py:1299> wait_for=<Future pending cb=[Task.task_wakeup()]> cb=[gather.<locals>._done_callback() at /usr/lib/python3.10/asyncio/tasks.py:720]>
-2025-03-06 12:33:46,710 Task was destroyed but it is pending!
-task: <Task pending name='Task-15' coro=<WebSocketCommonProtocol.close_connection() running at /home/btms/github_projects/estrategias_binarias/.venv/lib/python3.10/site-packages/websockets/legacy/protocol.py:1299> wait_for=<Future pending cb=[Task.task_wakeup()]> cb=[gather.<locals>._done_callback() at /usr/lib/python3.10/asyncio/tasks.py:720]>
-Exception ignored in: <coroutine object WebSocketCommonProtocol.close_connection at 0x7f9cf7525850>
-Traceback (most recent call last):
-  File "/home/btms/github_projects/estrategias_binarias/.venv/lib/python3.10/site-packages/websockets/legacy/protocol.py", line 1329, in close_connection
-  File "/home/btms/github_projects/estrategias_binarias/.venv/lib/python3.10/site-packages/websockets/legacy/protocol.py", line 1347, in close_transport
-  File "/home/btms/github_projects/estrategias_binarias/.venv/lib/python3.10/site-packages/websockets/legacy/protocol.py", line 1372, in wait_for_connection_lost
-  File "/usr/lib/python3.10/asyncio/tasks.py", line 405, in wait_for
-RuntimeError: no running event loop
-Exception ignored in: <coroutine object WebSocketCommonProtocol.close_connection at 0x7f9cf7525cb0>
-Traceback (most recent call last):
-  File "/home/btms/github_projects/estrategias_binarias/.venv/lib/python3.10/site-packages/websockets/legacy/protocol.py", line 1329, in close_connection
-  File "/home/btms/github_projects/estrategias_binarias/.venv/lib/python3.10/site-packages/websockets/legacy/protocol.py", line 1347, in close_transport
-  File "/home/btms/github_projects/estrategias_binarias/.venv/lib/python3.10/site-packages/websockets/legacy/protocol.py", line 1372, in wait_for_connection_lost
-  File "/usr/lib/python3.10/asyncio/tasks.py", line 405, in wait_for
-RuntimeError: no running event loop
-Exception ignored in: <coroutine object WebSocketCommonProtocol.close_connection at 0x7f9cf7525a80>
-Traceback (most recent call last):
-  File "/home/btms/github_projects/estrategias_binarias/.venv/lib/python3.10/site-packages/websockets/legacy/protocol.py", line 1329, in close_connection
-  File "/home/btms/github_projects/estrategias_binarias/.venv/lib/python3.10/site-packages/websockets/legacy/protocol.py", line 1347, in close_transport
-  File "/home/btms/github_projects/estrategias_binarias/.venv/lib/python3.10/site-packages/websockets/legacy/protocol.py", line 1372, in wait_for_connection_lost
-  File "/usr/lib/python3.10/asyncio/tasks.py", line 405, in wait_for
-RuntimeError: no running event loop
+
+[?2004h]0;btms@DESK-BTMS: ~/github_projects/estrategias_binarias[01;32mbtms@DESK-BTMS[00m:[01;34m~/github_projects/estrategias_binarias[00m$ exit
+[?2004lexit
+
+Script done on 2025-03-06 13:32:18-03:00 [COMMAND_EXIT_CODE="130"]
