@@ -4,12 +4,12 @@ from deriv.autobots import DerivedBot
 import asyncio
 
 class GraficoGUI:
-    def __init__(self, root, conn):
+    def __init__(self, root, initial_bot):
         self.root = root
-        self.conn = conn
+        self.conn = initial_bot.conn  # Acessa a conexão do robô inicial
         self.root.title("estratégias_binárias")
         self.running = True
-        self.bot = None
+        self.bot = initial_bot  # Recebe o robô inicial
         self.loop = asyncio.get_event_loop()
 
         self.label = tk.Label(root, text="Saldo: $0.00")
@@ -27,10 +27,10 @@ class GraficoGUI:
         self.duration_entry.insert(0, "0.25")
         self.duration_entry.pack()
 
-        self.contract_type_label = tk.Label(root, text="Tipo de Contrato:")
+        self.contract_type_label = tk.Label(root, text="Tipo de Contrato (call/put):")
         self.contract_type_label.pack()
-        self.contract_type_var = tk.StringVar(value="rise")
-        self.contract_type_menu = ttk.OptionMenu(root, self.contract_type_var, "rise", "rise", "fall")
+        self.contract_type_var = tk.StringVar(value="call")
+        self.contract_type_menu = ttk.OptionMenu(root, self.contract_type_var, "call", "call", "put")
         self.contract_type_menu.pack()
 
         self.buy_button = tk.Button(root, text="Comprar", command=self.buy)
@@ -42,21 +42,16 @@ class GraficoGUI:
     async def buy(self):
         print("Botão Comprar clicado! Tipo de contrato: {}, Stake: {}, Duração: {} minutos".format(
             self.contract_type_var.get(), self.stake_entry.get(), self.duration_entry.get()))
-        stake = float(self.stake_entry.get())
-        duration = float(self.duration_entry.get())
-        contract_type = self.contract_type_var.get()
+        stake = self.stake_entry.get()
+        duration = self.duration_entry.get()
+        contract_type = "rise" if self.contract_type_var.get() == "call" else "fall"
 
-        self.bot = DerivedBot(self.conn, stake=stake, duration=duration, trade_type="higher_lower", contract_type=contract_type)
+        self.bot.set_contract_parameters(stake, duration, contract_type)
         await self.bot.run()
 
-    def on_closing(self):
+    async def on_closing(self, conn):
         self.running = False
         if self.bot:
-            asyncio.run_coroutine_threadsafe(self.bot.stop(), self.loop)
-        self.root.destroy()
-
-if __name__ == "__main__":
-    root = tk.Tk()
-    conn = Connection()
-    app = GraficoGUI(root, conn)
-    root.mainloop()
+            await self.bot.stop()
+        print("Fechando a janela...")
+        await conn.disconnect()

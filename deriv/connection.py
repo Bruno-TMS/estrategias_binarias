@@ -71,3 +71,9 @@ class Connection:
         except Exception as e:
             print(f"Erro na requisição: {e}")
             raise
+
+    async def disconnect(self):
+        if self._api:
+            print("Desconectando da API...")
+            await self._api.disconnect()
+            self._api = None

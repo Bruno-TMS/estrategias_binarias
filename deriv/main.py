@@ -3,13 +3,12 @@ import tkinter as tk
 from deriv.modulo_grafico import GraficoGUI
 import nest_asyncio
 from deriv.connection import Connection
-import datetime
 import time
 
 async def test_connection(conn):
     print("Iniciando testes de conexão...")
     start_time = time.time()
-    start_datetime = datetime.datetime.now()
+    start_datetime = time.strftime("%Y-%m-%d %H:%M:%S")
     print(f"Horário inicial da conexão: {start_datetime}")
 
     try:
@@ -30,11 +29,14 @@ async def test_connection(conn):
 
 async def main():
     conn = Connection()
+    loop = asyncio.get_event_loop()
 
     if await test_connection(conn):
+        # Cria um robô inicial
+        initial_bot = DerivedBot.create_robot(conn)
         root = tk.Tk()
-        app = GraficoGUI(root, conn)
-        root.protocol("WM_DELETE_WINDOW", app.on_closing)
+        app = GraficoGUI(root, initial_bot)
+        root.protocol("WM_DELETE_WINDOW", lambda: loop.create_task(app.on_closing(conn)))
         nest_asyncio.apply()
         try:
             while app.running:
@@ -42,6 +44,10 @@ async def main():
                 await asyncio.sleep(0.01)
         except tk.TclError:
             pass
+        finally:
+            await conn.disconnect()
+            print("Encerrando o loop asyncio...")
+            loop.close()
     else:
         print("Encerrando programa devido a falha na conexão.")
 
