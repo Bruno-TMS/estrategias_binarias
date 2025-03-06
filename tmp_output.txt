@@ -1,6 +1,6 @@
 (.venv) btms@DESK-BTMS:~/github_projects/estrategias_binarias$ python -m deriv.main
 Iniciando testes de conexão...
-Horário inicial da conexão: 2025-03-06 18:31:35.187834
+Horário inicial da conexão: 2025-03-06 18:35:07.402167
 Credenciais carregadas: app_id=69493, api_token=Htv5Z...
 Iniciando conexão com a API...
 Conexão ativa. Tipo de conta: demo
@@ -91,7 +91,7 @@ Symbol: 1HZ150V, Display Name: Volatility 150 (1s) Index, Trading Available: Tru
 Symbol: 1HZ250V, Display Name: Volatility 250 (1s) Index, Trading Available: True
 Symbol: OTC_DJI, Display Name: Wall Street 30, Trading Available: True
 Status: Saldo disponível: $12295.75
-Conexão ok! Tempo total de conexão: 1.46 segundos
+Conexão ok! Tempo total de conexão: 6.25 segundos
 Iniciando a interface gráfica...
 Credenciais carregadas: app_id=69493, api_token=Htv5Z...
 Iniciando conexão com a API...
@@ -195,7 +195,7 @@ Inicializando API...
 Erro na requisição: ResponseError: Input validation failed: contract_type
 Erro ao executar o robô: ResponseError: Input validation failed: contract_type
 Fechando a janela...
-2025-03-06 18:32:22,067 Task exception was never retrieved
+2025-03-06 18:35:21,195 Task exception was never retrieved
 future: <Task finished name='Task-10' coro=<DerivedBot.run() done, defined at /home/btms/github_projects/estrategias_binarias/deriv/autobots.py:14> exception=ResponseError('Input validation failed: contract_type')>
 Traceback (most recent call last):
   File "/usr/lib/python3.10/asyncio/tasks.py", line 234, in __step
@@ -213,3 +213,4 @@ Traceback (most recent call last):
   File "/usr/lib/python3.10/asyncio/futures.py", line 201, in result
     raise self._exception.with_traceback(self._exception_tb)
 deriv_api.errors.ResponseError: ResponseError: Input validation failed: contract_type
+(.venv) btms@DESK-BTMS:~/github_projects/estrategias_binarias$ 
