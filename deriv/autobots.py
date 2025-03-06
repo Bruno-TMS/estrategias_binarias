@@ -35,14 +35,14 @@ class DerivedBot:
                 "basis": "stake"
             }
         }
-        response = await self.conn.send_request(trade)
+        response = await self.conn.send(trade)  # Usar send
         contract_id = response["buy"]["contract_id"]
         print(f"Contrato comprado, ID: {contract_id}")
         return contract_id
 
     async def monitor_contract(self, contract_id):
         while True:
-            details = await self.conn.send_request({"proposal_open_contract": 1, "contract_id": contract_id})
+            details = await self.conn.send({"proposal_open_contract": 1, "contract_id": contract_id})  # Usar send
             if details.get("is_sold", 0) == 1:
                 profit = details.get("profit", 0)
                 status = details.get("status", "unknown")

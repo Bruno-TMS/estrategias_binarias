@@ -18,6 +18,6 @@ class TradeParameters:
         self.conn = Connection()
 
     async def is_valid_combination(self, market_type, trade_type):
-        response = await self.conn.send_request({"available_contracts": 1, "market": market_type})
+        response = await self.conn.send({"available_contracts": 1, "market": market_type})  # Usar send
         valid_types = response.get("available_contracts", {}).get(market_type, [])
         return trade_type in valid_types
