@@ -30,18 +30,17 @@ async def test_connection(conn):
 async def main():
     conn = Connection()
     loop = asyncio.get_event_loop()
+    shutdown_event = asyncio.Event()
 
     if await test_connection(conn):
         # Cria um robô inicial
         initial_bot = DerivedBot.create_robot(conn)
         root = tk.Tk()
         app = GraficoGUI(root, initial_bot)
-        root.protocol("WM_DELETE_WINDOW", lambda: loop.create_task(app.on_closing(conn)))
+        root.protocol("WM_DELETE_WINDOW", lambda: loop.create_task(app.on_closing(conn, shutdown_event)))
         nest_asyncio.apply()
         try:
-            while app.running:
-                root.update()
-                await asyncio.sleep(0.01)
+            await shutdown_event.wait()  # Aguarda o evento de fechamento
         except tk.TclError:
             pass
         finally:

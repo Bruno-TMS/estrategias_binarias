@@ -6,10 +6,10 @@ import asyncio
 class GraficoGUI:
     def __init__(self, root, initial_bot):
         self.root = root
-        self.conn = initial_bot.conn  # Acessa a conexão do robô inicial
+        self.conn = initial_bot.conn
         self.root.title("estratégias_binárias")
         self.running = True
-        self.bot = initial_bot  # Recebe o robô inicial
+        self.bot = initial_bot
         self.loop = asyncio.get_event_loop()
 
         self.label = tk.Label(root, text="Saldo: $0.00")
@@ -49,9 +49,10 @@ class GraficoGUI:
         self.bot.set_contract_parameters(stake, duration, contract_type)
         await self.bot.run()
 
-    async def on_closing(self, conn):
+    async def on_closing(self, conn, shutdown_event):
         self.running = False
         if self.bot:
             await self.bot.stop()
         print("Fechando a janela...")
         await conn.disconnect()
+        shutdown_event.set()  # Sinaliza o encerramento
