@@ -55,4 +55,4 @@ class GraficoGUI:
             await self.bot.stop()
         print("Fechando a janela...")
         await conn.disconnect()
-        shutdown_event.set()  # Sinaliza o encerramento
+        shutdown_event.set()
