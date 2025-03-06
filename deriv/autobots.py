@@ -1,32 +1,33 @@
 import asyncio
-from deriv.connect import Connection
+from deriv.connection import Connection
 
 class DerivedBot:
-    def __init__(self, stake=1.0, duration=0.25, trade_type="higher_lower", contract_type="rise"):
-        # Encapsula o símbolo e outros parâmetros dentro do DerivedBot
-        self.symbol = "R_10"  # Símbolo padrão fixo
+    def __init__(self, conn, stake=1.0, duration=0.25, trade_type="higher_lower", contract_type="rise"):
+        self.symbol = "R_10"
         self.stake = stake
         self.duration = duration
         self.trade_type = trade_type
         self.contract_type = contract_type
-        self.conn = Connection()
+        self.conn = conn
         self.running = True
 
     async def run(self):
         try:
+            if not await self.conn.is_alive():
+                raise ValueError("Conexão com a API não está ativa.")
+            
             print(f"Verificando combinação para {self.trade_type}")
             if self.trade_type == "higher_lower":
                 print("Verificação de combinação para derived e higher_lower ignorada por agora.")
             print(f"Combinação válida. Iniciando compra para {self.symbol}")
 
-            # Valida os parâmetros com uma chamada proposal
             proposal_request = {
                 "proposal": 1,
                 "amount": self.stake,
                 "basis": "stake",
                 "contract_type": "HIGHER" if self.contract_type == "rise" else "LOWER",
                 "symbol": self.symbol,
-                "duration": int(self.duration * 60),  # Converte minutos para segundos
+                "duration": int(self.duration * 60),
                 "duration_unit": "s",
                 "currency": "USD"
             }
@@ -36,7 +37,6 @@ class DerivedBot:
                 raise ValueError(f"Erro na validação do contrato: {proposal_response['error']['message']}")
             print(f"Contrato válido: {proposal_response}")
 
-            # Extrai o contract_type e outros parâmetros da resposta da proposal
             if 'proposal' in proposal_response and isinstance(proposal_response['proposal'], list):
                 contract_details = proposal_response['proposal'][0]
                 expected_contract_type = "HIGHER" if self.contract_type == "rise" else "LOWER"
@@ -45,7 +45,6 @@ class DerivedBot:
             else:
                 raise ValueError("Resposta da proposal inválida")
 
-            # Configura a requisição de compra usando a resposta da proposal
             buy_request = {
                 "buy": 1,
                 "price": self.stake,
@@ -69,3 +68,4 @@ class DerivedBot:
 
     async def stop(self):
         self.running = False
+        print("Parando o robô...")

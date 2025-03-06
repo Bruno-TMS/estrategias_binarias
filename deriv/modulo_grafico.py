@@ -4,13 +4,14 @@ from deriv.autobots import DerivedBot
 import asyncio
 
 class GraficoGUI:
-    def __init__(self, root):
+    def __init__(self, root, conn):
         self.root = root
-        self.root.title("Estratégias Binárias")
+        self.conn = conn
+        self.root.title("estratégias_binárias")
         self.running = True
         self.bot = None
+        self.loop = asyncio.get_event_loop()
 
-        # Interface gráfica
         self.label = tk.Label(root, text="Saldo: $0.00")
         self.label.pack(pady=10)
 
@@ -45,17 +46,17 @@ class GraficoGUI:
         duration = float(self.duration_entry.get())
         contract_type = self.contract_type_var.get()
 
-        # Instancia o DerivedBot sem passar o símbolo, deixando o autobot gerenciar isso
-        self.bot = DerivedBot(stake=stake, duration=duration, trade_type="higher_lower", contract_type=contract_type)
+        self.bot = DerivedBot(self.conn, stake=stake, duration=duration, trade_type="higher_lower", contract_type=contract_type)
         await self.bot.run()
 
     def on_closing(self):
         self.running = False
-        self.root.destroy()
         if self.bot:
-            asyncio.run(self.bot.stop())
+            asyncio.run_coroutine_threadsafe(self.bot.stop(), self.loop)
+        self.root.destroy()
 
 if __name__ == "__main__":
     root = tk.Tk()
-    app = GraficoGUI(root)
+    conn = Connection()
+    app = GraficoGUI(root, conn)
     root.mainloop()
