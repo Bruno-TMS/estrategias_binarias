@@ -1,7 +1,18 @@
-Script started on 2025-03-06 13:34:51-03:00 [TERM="xterm-256color" TTY="/dev/pts/7" COLUMNS="63" LINES="11"]
-[?2004h]0;btms@DESK-BTMS: ~/github_projects/estrategias_binarias[01;32mbtms@DESK-BTMS[00m:[01;34m~/github_projects/estrategias_binarias[00m$ ^C[?2004l[?2004h[?2004l
-[?2004h]0;btms@DESK-BTMS: ~/github_projects/estrategias_binarias[01;32mbtms@DESK-BTMS[00m:[01;34m~/github_projects/estrategias_binarias[00m$ ^C[?2004l[?2004h[?2004l
-[?2004h]0;btms@DESK-BTMS: ~/github_projects/estrategias_binarias[01;32mbtms@DESK-BTMS[00m:[01;34m~/github_projects/estrategias_binarias[00m$ [7mexit[27mexit
-[?2004lexit
-
-Script done on 2025-03-06 13:35:21-03:00 [COMMAND_EXIT_CODE="130"]
+Iniciando a interface gráfica...
+Iniciando conexão com a API...
+Conexão ativa. Tipo de conta: DEMO
+Resposta do saldo: {'balance': {'balance': 12295.75, 'currency': 'USD', 'loginid': 'VRTC1487910'}, 'echo_req': {'balance': 1, 'req_id': 2}, 'msg_type': 'balance', 'req_id': 2}
+Botão Comprar CALL clicado!
+2025-03-06 13:39:37,658 Task exception was never retrieved
+future: <Task finished name='Task-23' coro=<DerivedBot.run() done, defined at /home/btms/github_projects/estrategias_binarias/deriv/autobots.py:16> exception=ResponseError('Unrecognised request')>
+Traceback (most recent call last):
+  File "/home/btms/github_projects/estrategias_binarias/deriv/autobots.py", line 17, in run
+    if await self.params.is_valid_combination("derived", self.trade_type):
+  File "/home/btms/github_projects/estrategias_binarias/deriv/trade_parameters.py", line 21, in is_valid_combination
+    response = await self.conn.send({"available_contracts": 1, "market": market_type})  # Usar send
+  File "/home/btms/github_projects/estrategias_binarias/deriv/connect.py", line 37, in send
+    return await self.api.send(request)
+  File "/home/btms/github_projects/estrategias_binarias/.venv/lib/python3.10/site-packages/deriv_api/deriv_api.py", line 264, in send
+    response = await response_future
+deriv_api.errors.ResponseError: ResponseError: Unrecognised request
+Fechando a janela...
