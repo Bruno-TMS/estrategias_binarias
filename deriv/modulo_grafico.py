@@ -40,8 +40,16 @@ class GraficoGUI:
             print(f"Erro ao conectar: {e}")
 
     async def update_balance(self):
-        balance = await self.conn.send_request({"balance": 1})
-        self.balance_label.config(text=f"Saldo: ${balance['balance']['balance']:.2f}")
+        try:
+            balance_response = await self.conn.send({"balance": 1})
+            print(f"Resposta do saldo: {balance_response}")  # Depuração
+            if 'balance' in balance_response:
+                balance_value = balance_response['balance'].get('balance', 0.0)
+                self.balance_label.config(text=f"Saldo: ${balance_value:.2f}")
+            else:
+                print("Erro: Resposta não contém 'balance'")
+        except Exception as e:
+            print(f"Erro ao atualizar saldo: {e}")
 
     def start_buy(self):
         print("Botão Comprar CALL clicado!")
