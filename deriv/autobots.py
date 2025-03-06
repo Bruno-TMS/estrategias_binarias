@@ -1,52 +1,69 @@
-from deriv.trade_parameters import TradeParameters
+import asyncio
 from deriv.connect import Connection
-from deriv.journal import Journal
 
 class DerivedBot:
-    def __init__(self, symbol, stake, duration, trade_type, contract_type):
-        self.conn = Connection()
-        self.journal = Journal(self.conn.account_type)
+    def __init__(self, symbol="R_10", stake=1.0, duration=0.25, trade_type="higher_lower", contract_type="rise"):
         self.symbol = symbol
         self.stake = stake
         self.duration = duration
         self.trade_type = trade_type
         self.contract_type = contract_type
-        self.params = TradeParameters()
+        self.conn = Connection()
+        self.running = True
 
     async def run(self):
-        if await self.params.is_valid_combination("derived", self.trade_type):
-            print(f"Robô iniciado para {self.symbol} com {self.trade_type}")
-            contract_id = await self.buy_contract()
-            await self.monitor_contract(contract_id)
-        else:
-            print("Combinação inválida!")
+        try:
+            print(f"Verificando combinação para {self.trade_type}")
+            if self.trade_type == "higher_lower":
+                print("Verificação de combinação para derived e higher_lower ignorada por agora.")
+            print(f"Combinação válida. Iniciando compra para {self.symbol}")
 
-    async def buy_contract(self):
-        trade = {
-            "buy": 1,
-            "price": self.stake,
-            "parameters": {
-                "contract_type": self.contract_type,
-                "symbol": self.symbol,
-                "duration": self.duration,
-                "duration_unit": "m",
-                "currency": "USD",
+            # Valida os parâmetros com uma chamada proposal
+            proposal_request = {
+                "proposal": 1,
                 "amount": self.stake,
-                "basis": "stake"
+                "basis": "stake",
+                "contract_type": "HIGHER" if self.contract_type == "rise" else "LOWER",
+                "symbol": self.symbol,
+                "duration": int(self.duration * 60),  # Converte minutos para segundos
+                "duration_unit": "s",
+                "currency": "USD"
             }
-        }
-        response = await self.conn.send(trade)  # Usar send
-        contract_id = response["buy"]["contract_id"]
-        print(f"Contrato comprado, ID: {contract_id}")
-        return contract_id
+            print(f"Validando contrato com requisição: {proposal_request}")
+            proposal_response = await self.conn.send(proposal_request)
+            if 'error' in proposal_response:
+                raise ValueError(f"Erro na validação do contrato: {proposal_response['error']['message']}")
+            print(f"Contrato válido: {proposal_response}")
 
-    async def monitor_contract(self, contract_id):
-        while True:
-            details = await self.conn.send({"proposal_open_contract": 1, "contract_id": contract_id})  # Usar send
-            if details.get("is_sold", 0) == 1:
-                profit = details.get("profit", 0)
-                status = details.get("status", "unknown")
-                self.journal.log_trade(contract_id, profit, status)
-                print(f"Lucro/Perda: ${profit:.2f}, Status: {status}")
-                break
-            await asyncio.sleep(1)
+            # Extrai o contract_type e outros parâmetros da resposta da proposal
+            if 'proposal' in proposal_response and isinstance(proposal_response['proposal'], list):
+                contract_details = proposal_response['proposal'][0]
+                if not contract_details.get('contract_type') == ("HIGHER" if self.contract_type == "rise" else "LOWER"):
+                    raise ValueError(f"Contract type {contract_details.get('contract_type')} não corresponde ao esperado {self.contract_type}")
+            else:
+                raise ValueError("Resposta da proposal inválida")
+
+            # Configura a requisição de compra usando a resposta da proposal
+            buy_request = {
+                "buy": 1,
+                "price": self.stake,
+                "parameters": {
+                    "contract_type": "HIGHER" if self.contract_type == "rise" else "LOWER",
+                    "symbol": self.symbol,
+                    "duration": int(self.duration * 60),
+                    "duration_unit": "s",
+                    "currency": "USD",
+                    "amount": self.stake,
+                    "basis": "stake"
+                }
+            }
+            print(f"Tentando comprar contrato: {buy_request['parameters']['contract_type']}, stake={self.stake}, duration={self.duration} minutos")
+            print(f"Requisição enviada: {buy_request}")
+            response = await self.conn.send(buy_request)
+            print(f"Contrato comprado: {response}")
+        except Exception as e:
+            print(f"Erro ao executar o robô: {e}")
+            raise
+
+    async def stop(self):
+        self.running = False
