@@ -1,10 +1,8 @@
 Iniciando a interface gráfica...
 Iniciando conexão com a API...
-Conexão ativa. Tipo de conta: DEMO
-Resposta do saldo: {'balance': {'balance': 12295.75, 'currency': 'USD', 'loginid': 'VRTC1487910'}, 'echo_req': {'balance': 1, 'req_id': 2}, 'msg_type': 'balance', 'req_id': 2}
 Botão Comprar CALL clicado!
-2025-03-06 13:39:37,658 Task exception was never retrieved
-future: <Task finished name='Task-23' coro=<DerivedBot.run() done, defined at /home/btms/github_projects/estrategias_binarias/deriv/autobots.py:16> exception=ResponseError('Unrecognised request')>
+2025-03-06 13:42:18,479 Task exception was never retrieved
+future: <Task finished name='Task-13' coro=<DerivedBot.run() done, defined at /home/btms/github_projects/estrategias_binarias/deriv/autobots.py:16> exception=ResponseError('Unrecognised request')>
 Traceback (most recent call last):
   File "/home/btms/github_projects/estrategias_binarias/deriv/autobots.py", line 17, in run
     if await self.params.is_valid_combination("derived", self.trade_type):
@@ -15,4 +13,5 @@ Traceback (most recent call last):
   File "/home/btms/github_projects/estrategias_binarias/.venv/lib/python3.10/site-packages/deriv_api/deriv_api.py", line 264, in send
     response = await response_future
 deriv_api.errors.ResponseError: ResponseError: Unrecognised request
-Fechando a janela...
+Conexão ativa. Tipo de conta: DEMO
+Resposta do saldo: {'balance': {'balance': 12295.75, 'currency': 'USD', 'loginid': 'VRTC1487910'}, 'echo_req': {'balance': 1, 'req_id': 2}, 'msg_type': 'balance', 'req_id': 2}
