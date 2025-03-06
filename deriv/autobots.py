@@ -2,8 +2,9 @@ import asyncio
 from deriv.connect import Connection
 
 class DerivedBot:
-    def __init__(self, symbol="R_10", stake=1.0, duration=0.25, trade_type="higher_lower", contract_type="rise"):
-        self.symbol = symbol
+    def __init__(self, stake=1.0, duration=0.25, trade_type="higher_lower", contract_type="rise"):
+        # Encapsula o símbolo e outros parâmetros dentro do DerivedBot
+        self.symbol = "R_10"  # Símbolo padrão fixo
         self.stake = stake
         self.duration = duration
         self.trade_type = trade_type
@@ -38,8 +39,9 @@ class DerivedBot:
             # Extrai o contract_type e outros parâmetros da resposta da proposal
             if 'proposal' in proposal_response and isinstance(proposal_response['proposal'], list):
                 contract_details = proposal_response['proposal'][0]
-                if not contract_details.get('contract_type') == ("HIGHER" if self.contract_type == "rise" else "LOWER"):
-                    raise ValueError(f"Contract type {contract_details.get('contract_type')} não corresponde ao esperado {self.contract_type}")
+                expected_contract_type = "HIGHER" if self.contract_type == "rise" else "LOWER"
+                if not contract_details.get('contract_type') == expected_contract_type:
+                    raise ValueError(f"Contract type {contract_details.get('contract_type')} não corresponde ao esperado {expected_contract_type}")
             else:
                 raise ValueError("Resposta da proposal inválida")
 
