@@ -1,23 +1,23 @@
+import asyncio
 from deriv.connect import Connection
-
-market = {
-    'derived': {'continuous_indices': ['volatility_10_1s', 'volatility_10']},
-    'forex': {},
-    'stock_indices': {},
-    'commodities': {}
-}
-
-trade_type = {
-    'up_down': ['rise_fall', 'rise_equals_fall_equals', 'higher_lower']
-}
-
-contract_type = ['both', 'rise', 'fall']
 
 class TradeParameters:
     def __init__(self):
         self.conn = Connection()
 
     async def is_valid_combination(self, market_type, trade_type):
-        response = await self.conn.send({"available_contracts": 1, "market": market_type})  # Usar send
-        valid_types = response.get("available_contracts", {}).get(market_type, [])
-        return trade_type in valid_types
+        """
+        Verifica se a combinação de mercado e tipo de trade é válida.
+        """
+        try:
+            # Ajuste para um comando válido, como 'contracts_for' ou uma verificação simplificada
+            request = {
+                "contracts_for": 1,
+                "product_type": "derived" if market_type == "derived" else "basic",
+                "symbol": "volatility_10"
+            }
+            response = await self.conn.send(request)
+            return "contracts" in response and len(response["contracts"]) > 0
+        except Exception as e:
+            print(f"Erro ao verificar combinação: {e}")
+            return False

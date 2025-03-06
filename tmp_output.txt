@@ -1,3 +1,19 @@
+(.venv) btms@DESK-BTMS:~/github_projects/estrategias_binarias$ python -m deriv.main
 Iniciando a interface gráfica...
 Iniciando conexão com a API...
+Conexão ativa. Tipo de conta: DEMO
+Resposta do saldo: {'balance': {'balance': 12295.75, 'currency': 'USD', 'loginid': 'VRTC1487910'}, 'echo_req': {'balance': 1, 'req_id': 2}, 'msg_type': 'balance', 'req_id': 2}
+Saldo atualizado na interface: $12295.75
+Botão Comprar clicado! Tipo de contrato: rise, Stake: $1.0, Duração: 0.25 minutos
+Erro ao verificar combinação: ResponseError: Input validation failed: Properties not allowed: symbol.
+Combinação inválida!
 Fechando a janela...
+(.venv) btms@DESK-BTMS:~/github_projects/estrategias_binarias$ 
+
+
+
+
+
+
+
+
