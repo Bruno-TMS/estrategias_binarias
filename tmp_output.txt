@@ -1,0 +1,21 @@
+Iniciando a interface gráfica...
+Traceback (most recent call last):
+  File "/usr/lib/python3.10/runpy.py", line 196, in _run_module_as_main
+    return _run_code(code, main_globals, None,
+  File "/usr/lib/python3.10/runpy.py", line 86, in _run_code
+    exec(code, run_globals)
+  File "/home/btms/github_projects/estrategias_binarias/deriv/main.py", line 15, in <module>
+    asyncio.run(main())
+  File "/usr/lib/python3.10/asyncio/runners.py", line 44, in run
+    return loop.run_until_complete(main)
+  File "/usr/lib/python3.10/asyncio/base_events.py", line 649, in run_until_complete
+    return future.result()
+  File "/home/btms/github_projects/estrategias_binarias/deriv/main.py", line 7, in main
+    app = GraficoGUI(root)
+  File "/home/btms/github_projects/estrategias_binarias/deriv/modulo_grafico.py", line 11, in __init__
+    self.conn = Connection()
+  File "/home/btms/github_projects/estrategias_binarias/deriv/connect.py", line 12, in __init__
+    self.api = DerivAPI()  # Sem app_id
+  File "/home/btms/github_projects/estrategias_binarias/.venv/lib/python3.10/site-packages/deriv_api/deriv_api.py", line 103, in __init__
+    raise ConstructionError('An app_id is required to connect to the API')
+deriv_api.errors.ConstructionError: ConstructionError:An app_id is required to connect to the API
