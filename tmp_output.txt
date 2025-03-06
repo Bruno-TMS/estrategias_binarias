@@ -1,17 +1,39 @@
-Iniciando a interface gráfica...
-Iniciando conexão com a API...
-Botão Comprar CALL clicado!
-2025-03-06 13:42:18,479 Task exception was never retrieved
-future: <Task finished name='Task-13' coro=<DerivedBot.run() done, defined at /home/btms/github_projects/estrategias_binarias/deriv/autobots.py:16> exception=ResponseError('Unrecognised request')>
 Traceback (most recent call last):
-  File "/home/btms/github_projects/estrategias_binarias/deriv/autobots.py", line 17, in run
-    if await self.params.is_valid_combination("derived", self.trade_type):
-  File "/home/btms/github_projects/estrategias_binarias/deriv/trade_parameters.py", line 21, in is_valid_combination
-    response = await self.conn.send({"available_contracts": 1, "market": market_type})  # Usar send
-  File "/home/btms/github_projects/estrategias_binarias/deriv/connect.py", line 37, in send
-    return await self.api.send(request)
-  File "/home/btms/github_projects/estrategias_binarias/.venv/lib/python3.10/site-packages/deriv_api/deriv_api.py", line 264, in send
-    response = await response_future
-deriv_api.errors.ResponseError: ResponseError: Unrecognised request
-Conexão ativa. Tipo de conta: DEMO
-Resposta do saldo: {'balance': {'balance': 12295.75, 'currency': 'USD', 'loginid': 'VRTC1487910'}, 'echo_req': {'balance': 1, 'req_id': 2}, 'msg_type': 'balance', 'req_id': 2}
+  File "/usr/lib/python3.10/runpy.py", line 196, in _run_module_as_main
+    return _run_code(code, main_globals, None,
+  File "/usr/lib/python3.10/runpy.py", line 86, in _run_code
+    exec(code, run_globals)
+  File "/home/btms/github_projects/estrategias_binarias/deriv/main.py", line 3, in <module>
+    from deriv.modulo_grafico import GraficoGUI
+  File "/home/btms/github_projects/estrategias_binarias/deriv/modulo_grafico.py", line 5, in <module>
+    from deriv.config import DURATION
+  File "/home/btms/github_projects/estrategias_binarias/deriv/config.py", line 10, in <module>
+    config = load_config()
+  File "/home/btms/github_projects/estrategias_binarias/deriv/config.py", line 7, in load_config
+    config = yaml.safe_load(file)
+  File "/usr/lib/python3/dist-packages/yaml/__init__.py", line 125, in safe_load
+    return load(stream, SafeLoader)
+  File "/usr/lib/python3/dist-packages/yaml/__init__.py", line 81, in load
+    return loader.get_single_data()
+  File "/usr/lib/python3/dist-packages/yaml/constructor.py", line 49, in get_single_data
+    node = self.get_single_node()
+  File "/usr/lib/python3/dist-packages/yaml/composer.py", line 36, in get_single_node
+    document = self.compose_document()
+  File "/usr/lib/python3/dist-packages/yaml/composer.py", line 55, in compose_document
+    node = self.compose_node(None, None)
+  File "/usr/lib/python3/dist-packages/yaml/composer.py", line 84, in compose_node
+    node = self.compose_mapping_node(anchor)
+  File "/usr/lib/python3/dist-packages/yaml/composer.py", line 127, in compose_mapping_node
+    while not self.check_event(MappingEndEvent):
+  File "/usr/lib/python3/dist-packages/yaml/parser.py", line 98, in check_event
+    self.current_event = self.state()
+  File "/usr/lib/python3/dist-packages/yaml/parser.py", line 428, in parse_block_mapping_key
+    if self.check_token(KeyToken):
+  File "/usr/lib/python3/dist-packages/yaml/scanner.py", line 116, in check_token
+    self.fetch_more_tokens()
+  File "/usr/lib/python3/dist-packages/yaml/scanner.py", line 223, in fetch_more_tokens
+    return self.fetch_value()
+  File "/usr/lib/python3/dist-packages/yaml/scanner.py", line 577, in fetch_value
+    raise ScannerError(None, None,
+yaml.scanner.ScannerError: mapping values are not allowed here
+  in "/home/btms/github_projects/estrategias_binarias/deriv/../configs/config.yaml", line 1, column 21

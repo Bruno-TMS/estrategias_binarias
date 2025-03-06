@@ -8,8 +8,7 @@ def load_config():
     return config
 
 config = load_config()
-APP_ID = None  # Carregado de secrets.csv via connect.py
-API_TOKEN = None  # Carregado de secrets.csv via connect.py
+API_TOKEN = "5lQ6GcWHV5cuHLc"  # Usando o token do secrets.csv
 SYMBOL = config['symbol']
 INITIAL_STAKE = config['stake']
-DURATION = config['duration']
+DURATION = 0.25  # Ajustado para 15 segundos (0.25 minutos)
