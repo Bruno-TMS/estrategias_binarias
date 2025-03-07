@@ -3,6 +3,7 @@ import tkinter as tk
 from deriv.modulo_grafico import GraficoGUI
 import nest_asyncio
 from deriv.connection import Connection
+from deriv.autobots import DerivedBot  # Adicionada a importação correta
 import time
 
 async def test_connection(conn):

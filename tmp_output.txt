@@ -1,7 +1,7 @@
 (.venv) btms@DESK-BTMS:~/github_projects/estrategias_binarias$ python -m deriv.main
 Credenciais carregadas: app_id=69493, api_token=Htv5Z...
 Iniciando testes de conexão...
-Horário inicial da conexão: 2025-03-06 20:28:49
+Horário inicial da conexão: 2025-03-06 21:03:54
 Iniciando conexão com a API...
 Conexão ativa. Tipo de conta: demo
 Ativos disponíveis:
@@ -91,19 +91,31 @@ Symbol: 1HZ150V, Display Name: Volatility 150 (1s) Index, Trading Available: Tru
 Symbol: 1HZ250V, Display Name: Volatility 250 (1s) Index, Trading Available: True
 Symbol: OTC_DJI, Display Name: Wall Street 30, Trading Available: True
 Status: Saldo disponível: $12295.75
-Conexão ok! Tempo total de conexão: 6.26 segundos
+Conexão ok! Tempo total de conexão: 6.46 segundos
+/usr/lib/python3.10/tkinter/__init__.py:1346: RuntimeWarning: coroutine 'GraficoGUI.buy' was never awaited
+  self.tk.call('update')
+RuntimeWarning: Enable tracemalloc to get the object allocation traceback
+Parando o robô ID 0...
+Fechando a janela...
+Desconectando da API...
+Desconectando da API...
+Encerrando o loop asyncio...
 Traceback (most recent call last):
   File "/usr/lib/python3.10/runpy.py", line 196, in _run_module_as_main
     return _run_code(code, main_globals, None,
   File "/usr/lib/python3.10/runpy.py", line 86, in _run_code
     exec(code, run_globals)
-  File "/home/btms/github_projects/estrategias_binarias/deriv/main.py", line 58, in <module>
+  File "/home/btms/github_projects/estrategias_binarias/deriv/main.py", line 59, in <module>
     asyncio.run(main())
   File "/usr/lib/python3.10/asyncio/runners.py", line 44, in run
     return loop.run_until_complete(main)
   File "/usr/lib/python3.10/asyncio/base_events.py", line 649, in run_until_complete
     return future.result()
-  File "/home/btms/github_projects/estrategias_binarias/deriv/main.py", line 37, in main
-    initial_bot = DerivedBot.create_robot(conn)
-NameError: name 'DerivedBot' is not defined
+  File "/home/btms/github_projects/estrategias_binarias/deriv/main.py", line 54, in main
+    loop.close()
+  File "/usr/lib/python3.10/asyncio/unix_events.py", line 68, in close
+    super().close()
+  File "/usr/lib/python3.10/asyncio/selector_events.py", line 84, in close
+    raise RuntimeError("Cannot close a running event loop")
+RuntimeError: Cannot close a running event loop
 (.venv) btms@DESK-BTMS:~/github_projects/estrategias_binarias$ 
