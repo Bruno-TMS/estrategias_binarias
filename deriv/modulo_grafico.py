@@ -4,13 +4,13 @@ from deriv.autobots import DerivedBot
 import asyncio
 
 class GraficoGUI:
-    def __init__(self, root, initial_bot):
+    def __init__(self, root, initial_bot, loop):
         self.root = root
         self.conn = initial_bot.conn
         self.root.title("estratégias_binárias")
         self.running = True
         self.bot = initial_bot
-        self.loop = asyncio.get_event_loop()
+        self.loop = loop  # Recebendo o loop da main
 
         self.label = tk.Label(root, text="Saldo: $0.00")
         self.label.pack(pady=10)
@@ -39,7 +39,7 @@ class GraficoGUI:
     def update_balance(self, balance):
         self.label.config(text=f"Saldo: ${balance:.2f}")
 
-    async def buy(self):
+    def buy(self):
         print("Botão Comprar clicado! Tipo de contrato: {}, Stake: {}, Duração: {} minutos".format(
             self.contract_type_var.get(), self.stake_entry.get(), self.duration_entry.get()))
         stake = self.stake_entry.get()
@@ -47,7 +47,8 @@ class GraficoGUI:
         contract_type = "rise" if self.contract_type_var.get() == "call" else "fall"
 
         self.bot.set_contract_parameters(stake, duration, contract_type)
-        await self.bot.run()
+        # Inicia a execução assíncrona como uma tarefa, evitando bloqueio
+        self.loop.create_task(self.bot.run())
 
     async def on_closing(self, conn, shutdown_event):
         self.running = False

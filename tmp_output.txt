@@ -1,7 +1,7 @@
 (.venv) btms@DESK-BTMS:~/github_projects/estrategias_binarias$ python -m deriv.main
 Credenciais carregadas: app_id=69493, api_token=Htv5Z...
 Iniciando testes de conexão...
-Horário inicial da conexão: 2025-03-06 21:03:54
+Horário inicial da conexão: 2025-03-06 21:44:23
 Iniciando conexão com a API...
 Conexão ativa. Tipo de conta: demo
 Ativos disponíveis:
@@ -91,31 +91,66 @@ Symbol: 1HZ150V, Display Name: Volatility 150 (1s) Index, Trading Available: Tru
 Symbol: 1HZ250V, Display Name: Volatility 250 (1s) Index, Trading Available: True
 Symbol: OTC_DJI, Display Name: Wall Street 30, Trading Available: True
 Status: Saldo disponível: $12295.75
-Conexão ok! Tempo total de conexão: 6.46 segundos
-/usr/lib/python3.10/tkinter/__init__.py:1346: RuntimeWarning: coroutine 'GraficoGUI.buy' was never awaited
-  self.tk.call('update')
-RuntimeWarning: Enable tracemalloc to get the object allocation traceback
+Conexão ok! Tempo total de conexão: 5.70 segundos
+Botão Comprar clicado! Tipo de contrato: call, Stake: 1.0, Duração: 0.25 minutos
+Parâmetros atualizados para robô ID 0: stake=1.0, duration=0.25, contract_type=rise
+Verificando combinação para higher_lower no robô ID 0
+Verificação de combinação para derived e higher_lower ignorada por agora.
+Combinação válida. Iniciando compra para R_10 no robô ID 0
+Validando contrato com requisição: {'proposal': 1, 'amount': 1.0, 'basis': 'stake', 'contract_type': 'HIGHER', 'symbol': 'R_10', 'duration': 15, 'duration_unit': 's', 'currency': 'USD'}
+Erro na requisição: ResponseError: Input validation failed: contract_type
+Erro ao executar o robô ID 0: ResponseError: Input validation failed: contract_type
+2025-03-06 21:44:33,603 Task exception was never retrieved
+future: <Task finished name='Task-1' coro=<DerivedBot.run() done, defined at /home/btms/github_projects/estrategias_binarias/deriv/autobots.py:44> exception=ResponseError('Input validation failed: contract_type')>
+Traceback (most recent call last):
+  File "/usr/lib/python3.10/asyncio/tasks.py", line 234, in __step
+    result = coro.throw(exc)
+  File "/home/btms/github_projects/estrategias_binarias/deriv/autobots.py", line 66, in run
+    proposal_response = await self.conn.send(proposal_request)
+  File "/home/btms/github_projects/estrategias_binarias/deriv/connection.py", line 69, in send
+    response = await self._api.send(request)
+  File "/home/btms/github_projects/estrategias_binarias/.venv/lib/python3.10/site-packages/deriv_api/deriv_api.py", line 264, in send
+    response = await response_future
+  File "/usr/lib/python3.10/asyncio/futures.py", line 285, in __await__
+    yield self  # This tells Task to wait for completion.
+  File "/usr/lib/python3.10/asyncio/tasks.py", line 304, in __wakeup
+    future.result()
+  File "/usr/lib/python3.10/asyncio/futures.py", line 201, in result
+    raise self._exception.with_traceback(self._exception_tb)
+deriv_api.errors.ResponseError: ResponseError: Input validation failed: contract_type
 Parando o robô ID 0...
 Fechando a janela...
 Desconectando da API...
-Desconectando da API...
-Encerrando o loop asyncio...
+Traceback (most recent call last):
+  File "/home/btms/github_projects/estrategias_binarias/.venv/lib/python3.10/site-packages/websockets/legacy/protocol.py", line 1234, in keepalive_ping
+    await asyncio.sleep(
+  File "/usr/lib/python3.10/asyncio/tasks.py", line 605, in sleep
+    return await future
+  File "/usr/lib/python3.10/asyncio/futures.py", line 285, in __await__
+    yield self  # This tells Task to wait for completion.
+asyncio.exceptions.CancelledError
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/home/btms/github_projects/estrategias_binarias/deriv/main.py", line 54, in main
+    loop.run_until_complete(asyncio.gather(*pending))  # Aguarda todas as tarefas pendentes
+  File "/home/btms/github_projects/estrategias_binarias/.venv/lib/python3.10/site-packages/nest_asyncio.py", line 98, in run_until_complete
+    return f.result()
+asyncio.exceptions.CancelledError
+
+During handling of the above exception, another exception occurred:
+
 Traceback (most recent call last):
   File "/usr/lib/python3.10/runpy.py", line 196, in _run_module_as_main
     return _run_code(code, main_globals, None,
   File "/usr/lib/python3.10/runpy.py", line 86, in _run_code
     exec(code, run_globals)
-  File "/home/btms/github_projects/estrategias_binarias/deriv/main.py", line 59, in <module>
+  File "/home/btms/github_projects/estrategias_binarias/deriv/main.py", line 62, in <module>
     asyncio.run(main())
   File "/usr/lib/python3.10/asyncio/runners.py", line 44, in run
     return loop.run_until_complete(main)
   File "/usr/lib/python3.10/asyncio/base_events.py", line 649, in run_until_complete
     return future.result()
-  File "/home/btms/github_projects/estrategias_binarias/deriv/main.py", line 54, in main
-    loop.close()
-  File "/usr/lib/python3.10/asyncio/unix_events.py", line 68, in close
-    super().close()
-  File "/usr/lib/python3.10/asyncio/selector_events.py", line 84, in close
-    raise RuntimeError("Cannot close a running event loop")
-RuntimeError: Cannot close a running event loop
+asyncio.exceptions.CancelledError
 (.venv) btms@DESK-BTMS:~/github_projects/estrategias_binarias$ 
