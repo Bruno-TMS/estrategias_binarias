@@ -1,79 +1,244 @@
+import pprint
+
 class ContractTrade:
-    """Classe que cria negociações para associação, só permitindo instâncias baseadas em tipos pré-configurados em trades."""
+    """Classe que cria negociações para associação, cacheando instâncias com __new__."""
     
-    _trades_info = {}  # Cache global de tipos e nomes de negociações
-    trades = []  # Lista global de instâncias de negociações
+    trades = []  # Cache global de todas as instâncias de negociações
     
-    def __init__(self, symbol, contract, min_time, max_time):
-        """Inicializa uma negociação válida, verificando unicidade e validade."""
-        # Verifica se symbol e contract são instâncias válidas
-        if not isinstance(symbol, ContractSymbol):
-            raise ValueError(f'Symbol {symbol} deve ser uma instância de ContractSymbol.')
-        if not isinstance(contract, ContractType):
-            raise ValueError(f'Contract {contract} deve ser uma instância de ContractType.')
-        if not isinstance(min_time, DurationContract) or not isinstance(max_time, DurationContract):
-            raise ValueError(f'min_time e max_time devem ser instâncias de ContractDuration.')
+    def __new__(cls, symbol, contract, min_time, max_time):
+        """Cria uma nova instância ou retorna uma existente se duplicada."""
+        if not all([symbol, contract]):
+            raise ValueError('symbol e contract devem ser fornecidos.')
         
-        # Verifica se a combinação symbol/contract já existe
-        symbol_id = symbol.symbol_id
-        contract_type = contract.contract_type
-        contract_name = contract.contract_name
-        key = (symbol_id, contract_type, contract_name)
-        if key in ContractTrade._trades_info:
-            raise ValueError(f'Combinação {symbol_id}/{contract_type}:{contract_name} já existe.')
+        # Normalizar min_time e max_time
+        if min_time in [None, "", ("", "")]:
+            min_time = None
+        if max_time in [None, "", ("", "")]:
+            max_time = None
         
-        # Armazena os valores
-        self._symbol = symbol
-        self._contract = contract
-        self._min_time = min_time
-        self._max_time = max_time
-        ContractTrade._trades_info[key] = (min_time, max_time)
-        ContractTrade.trades.append(self)
+        try:
+            if not (isinstance(symbol, ContractSymbol) and isinstance(contract, ContractType)):
+                raise ValueError('symbol deve ser ContractSymbol e contract deve ser ContractType.')
+            if min_time is not None and not isinstance(min_time, DurationContract):
+                raise ValueError('min_time deve ser DurationContract ou None.')
+            if max_time is not None and not isinstance(max_time, DurationContract):
+                raise ValueError('max_time deve ser DurationContract ou None.')
+        
+        except ValueError as e:
+            raise ValueError(f'Valores inválidos para negociação: {symbol}, {contract}, {min_time}, {max_time}') from e
+        
+        else:
+            # Verifica duplicatas no cache
+            key = (symbol.symbol_id, contract.contract_type, contract.contract_name, min_time, max_time)
+            for trade in cls.trades:
+                if (trade.symbol.symbol_id == symbol.symbol_id and 
+                    trade.contract.contract_type == contract.contract_type and 
+                    trade.contract.contract_name == contract.contract_name and 
+                    trade._min_time == min_time and 
+                    trade._max_time == max_time):
+                    return trade
+            new_instance = super().__new__(cls)
+            new_instance._symbol = symbol
+            new_instance._contract = contract
+            new_instance._min_time = min_time
+            new_instance._max_time = max_time
+            return new_instance
     
-    @classmethod
-    def add_trade(cls, symbol, contract, min_time, max_time):
-        """Adiciona uma combinação válida de símbolo/contrato ao cache global, verificando unicidade."""
-        if not isinstance(symbol, ContractSymbol):
-            raise ValueError(f'Symbol {symbol} deve ser uma instância de ContractSymbol.')
-        if not isinstance(contract, ContractType):
-            raise ValueError(f'Contract {contract} deve ser uma instância de ContractType.')
-        if not isinstance(min_time, DurationContract) or not isinstance(max_time, DurationContract):
-            raise ValueError(f'min_time e max_time devem ser instâncias de ContractDuration.')
-        
-        symbol_id = symbol.symbol_id
-        contract_type = contract.contract_type
-        contract_name = contract.contract_name
-        key = (symbol_id, contract_type, contract_name)
-        if key in cls._trades_info:
-            raise ValueError(f'Combinação {symbol_id}/{contract_type}:{contract_name} já existe.')
-        
-        cls._trades_info[key] = (min_time, max_time)
-    
-    @classmethod
-    def get_trades_by_symbol(cls, symbol):
-        """Retorna todas as instâncias na lista trades que têm o mesmo symbol, ou False se não encontrada."""
-        if not isinstance(symbol, ContractSymbol):
-            return False
-        return [trade for trade in cls.trades if trade.symbol == symbol] or False
+    def __init__(self):
+        """Inicializa a negociação após verificação em __new__."""
+        if self not in ContractTrade.trades:
+            ContractTrade.trades.append(self)
     
     @property
     def symbol(self):
+        """Retorna o símbolo associado à negociação."""
         return self._symbol
     
     @property
     def contract(self):
+        """Retorna o tipo de contrato associado à negociação."""
         return self._contract
     
     @property
     def min_time(self):
-        return self._min_time
+        """Retorna a duração mínima como tupla (duration, duration_type) ou (None, None) se nula."""
+        if self._min_time is None:
+            return (None, None)
+        return (self._min_time.duration, self._min_time.duration_type)
     
     @property
     def max_time(self):
-        return self._max_time
+        """Retorna a duração máxima como tupla (duration, duration_type) ou (None, None) se nula."""
+        if self._max_time is None:
+            return (None, None)
+        return (self._max_time.duration, self._max_time.duration_type)
     
+    @classmethod
+    def get_trades_by_symbol_id(cls, symbol_id):
+        """Retorna todas as instâncias na lista trades com o mesmo symbol_id, ou False se não encontrada."""
+        return [trade for trade in cls.trades if trade.symbol.symbol_id == symbol_id] or False
+    
+    @classmethod
+    def get_trades_by_symbol_name(cls, symbol_name):
+        """Retorna todas as instâncias na lista trades com o mesmo symbol_name, ou False se não encontrada."""
+        return [trade for trade in cls.trades if trade.symbol.symbol_name == symbol_name] or False
+    
+    @classmethod
+    def get_trades_by_contract_type(cls, contract_type):
+        """Retorna todas as instâncias na lista trades com o mesmo contract_type, ou False se não encontrada."""
+        return [trade for trade in cls.trades if trade.contract.contract_type == contract_type] or False
+    
+    @classmethod
+    def get_trades_by_contract_name(cls, contract_name):
+        """Retorna todas as instâncias na lista trades com o mesmo contract_name, ou False se não encontrada."""
+        return [trade for trade in cls.trades if trade.contract.contract_name == contract_name] or False
+    
+    @classmethod
+    def get_trades_by_min_time(cls, duration_value):
+        """Retorna todas as instâncias na lista trades com min_time igual ao valor dado, ou False se não encontrada."""
+        return [trade for trade in cls.trades if trade.min_time[0] == duration_value if trade.min_time[0] is not None] or False
+    
+    @classmethod
+    def get_trades_by_max_time(cls, duration_value):
+        """Retorna todas as instâncias na lista trades com max_time igual ao valor dado, ou False se não encontrada."""
+        return [trade for trade in cls.trades if trade.max_time[0] == duration_value if trade.max_time[0] is not None] or False
+    
+    @classmethod
+    def get_trades_with_min_below(cls, duration_value):
+        """Retorna todas as instâncias na lista trades com min_time abaixo do valor dado, ou False se não encontrada."""
+        return [trade for trade in cls.trades if trade.min_time[0] is not None and trade.min_time[0] < duration_value] or False
+    
+    @classmethod
+    def get_trades_with_min_above(cls, duration_value):
+        """Retorna todas as instâncias na lista trades com min_time acima do valor dado, ou False se não encontrada."""
+        return [trade for trade in cls.trades if trade.min_time[0] is not None and trade.min_time[0] > duration_value] or False
+    
+    @classmethod
+    def get_trades_with_max_below(cls, duration_value):
+        """Retorna todas as instâncias na lista trades com max_time abaixo do valor dado, ou False se não encontrada."""
+        return [trade for trade in cls.trades if trade.max_time[0] is not None and trade.max_time[0] < duration_value] or False
+    
+    @classmethod
+    def get_trades_with_max_above(cls, duration_value):
+        """Retorna todas as instâncias na lista trades com max_time acima do valor dado, ou False se não encontrada."""
+        return [trade for trade in cls.trades if trade.max_time[0] is not None and trade.max_time[0] > duration_value] or False
+    
+    @classmethod
+    def relatorio(cls):
+        """Exibe um relatório organizado de todas as negociações em cache usando pprint."""
+        trades_data = {
+            f"Trade {i}": {
+                "symbol_id": trade.symbol.symbol_id,
+                "symbol_name": trade.symbol.symbol_name,
+                "contract_type": trade.contract.contract_type,
+                "contract_name": trade.contract.contract_name,
+                "min_time": trade.min_time,
+                "max_time": trade.max_time
+            } for i, trade in enumerate(cls.trades)
+        }
+        pprint.pprint(trades_data)
+    
+    def __eq__(self, value):
+        if not isinstance(value, ContractTrade):
+            raise ValueError('Comparação inválida, deve ser com ContractTrade.')
+        return (self.symbol == value.symbol and 
+                self.contract == value.contract and 
+                self.min_time == value.min_time and 
+                self.max_time == value.max_time)
+
+class ContractType:
+    """Classe que cria contratos para associação, só permitindo instâncias baseadas em tipos pré-configurados em contracts."""
+    
+    contracts = []  # Lista global de instâncias de contratos (agora único ponto de cache)
+    
+    def __new__(cls, contract_type, contract_name):
+        """Cria uma nova instância ou retorna uma existente se duplicada."""
+        if not contract_type or not contract_name:
+            raise ValueError('contract_type e contract_name não podem ser vazios.')
+        
+        try:
+            if not isinstance(contract_type, str) or not isinstance(contract_name, str):
+                raise ValueError(f'contract_type e contract_name devem ser strings, recebido: {contract_type}, {contract_name}')
+            
+            # Validação de unicidade (nome não pode existir em outro tipo)
+            for contract in cls.contracts:
+                if contract.contract_name == contract_name and contract.contract_type != contract_type:
+                    raise ValueError(f'Contract name {contract_name} já existe em {contract.contract_type}.')
+        
+        except ValueError as e:
+            raise ValueError(f'Valores inválidos para contract_type ou contract_name: {contract_type}, {contract_name}') from e
+        
+        else:
+            # Verifica duplicatas no cache
+            for contract in cls.contracts:
+                if contract.contract_type == contract_type and contract.contract_name == contract_name:
+                    return contract
+            new_instance = super().__new__(cls)
+            new_instance._contract_type = contract_type
+            new_instance._contract_name = contract_name
+            return new_instance
+    
+    def __init__(self):
+        """Inicializa um contrato válido após verificação em __new__."""
+        if self not in ContractType.contracts:
+            ContractType.contracts.append(self)
+    
+    @classmethod
+    def get_types(cls):
+        """Retorna todos os contract_type da lista contracts."""
+        return list({contract.contract_type for contract in cls.contracts})
+    
+    @classmethod
+    def get_names(cls):
+        """Retorna todos os contract_name da lista contracts."""
+        return [contract.contract_name for contract in cls.contracts]
+    
+    @classmethod
+    def get_type_by_name(cls, contract_name):
+        """Retorna o contract_type associado a um contract_name único, ou False se não encontrado."""
+        for contract in cls.contracts:
+            if contract.contract_name == contract_name:
+                return contract.contract_type
+        return False
+    
+    @classmethod
+    def get_contract_by_name(cls, contract_name):
+        """Retorna a instância na lista contracts que tem o mesmo contract_name, ou False se não encontrada."""
+        for contract in cls.contracts:
+            if contract.contract_name == contract_name:
+                return contract
+        return False
+    
+    @classmethod
+    def get_contracts_same_type_by_name(cls, contract_name):
+        """Retorna todas as instâncias na lista contracts que têm o mesmo contract_type dado um contract_name, ou False se não encontrada."""
+        contract_type = cls.get_type_by_name(contract_name)
+        if not contract_type:
+            return False
+        return [contract for contract in cls.contracts if contract.contract_type == contract_type]
+    
+    @classmethod
+    def get_contracts_by_type(cls, contract_type):
+        """Retorna todas as instâncias na lista contracts que têm o mesmo contract_type, ou False se não encontrada."""
+        contracts = [contract for contract in cls.contracts if contract.contract_type == contract_type]
+        return contracts if contracts else False
+    
+    @property
+    def contract_type(self):
+        return self._contract_type
+    
+    @property
+    def contract_name(self):
+        return self._contract_name
+        
     def __str__(self):
-        return f'{self._symbol.symbol_id}/{self._contract.contract_type}:{self._contract.contract_name} ({self._min_time}-{self._max_time})'
+        return f'{self._contract_type}:{self.contract_name}'
+    
+    def __eq__(self, value):
+        if not isinstance(value, ContractType):
+            raise ValueError('Comparação inválida, deve ser com ContractType.')
+        return self.contract_type == value.contract_type and self.contract_name == value.contract_name
+
 
 
 class ContractSymbol:
