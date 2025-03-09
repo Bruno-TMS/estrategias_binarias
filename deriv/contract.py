@@ -1,249 +1,262 @@
-# contract.py
-import asyncio
-from deriv_api import DerivAPI
-from deriv import connection
-
-
-class Contract:
-    """Classe que cria contratos para associação, só permitindo instâncias baseadas em tipos pré-configurados em contracts."""
+class ContractTrade:
+    """Classe que cria negociações para associação, só permitindo instâncias baseadas em tipos pré-configurados em trades."""
     
-    _contracts_info = {}  # Cache global de tipos e nomes de contratos
-    contracts = []  # Lista global de instâncias de contratos
+    _trades_info = {}  # Cache global de tipos e nomes de negociações
+    trades = []  # Lista global de instâncias de negociações
     
-    def __init__(self, contract_type, contract_name):
-        """Inicializa um contrato válido."""
-        if contract_type not in Contract._contracts_info.keys() or contract_name not in Contract._contracts_info.get(contract_type, set()):
-            raise ValueError(f'Contrato {contract_type}/{contract_name} inválido.')
-        self._contract_type = contract_type
-        self._contract_name = contract_name
-        Contract.contracts.append(self)
+    def __init__(self, symbol, contract, min_time, max_time):
+        """Inicializa uma negociação válida, verificando unicidade e validade."""
+        # Verifica se symbol e contract são instâncias válidas
+        if not isinstance(symbol, ContractSymbol):
+            raise ValueError(f'Symbol {symbol} deve ser uma instância de ContractSymbol.')
+        if not isinstance(contract, ContractType):
+            raise ValueError(f'Contract {contract} deve ser uma instância de ContractType.')
+        if not isinstance(min_time, DurationContract) or not isinstance(max_time, DurationContract):
+            raise ValueError(f'min_time e max_time devem ser instâncias de ContractDuration.')
+        
+        # Verifica se a combinação symbol/contract já existe
+        symbol_id = symbol.symbol_id
+        contract_type = contract.contract_type
+        contract_name = contract.contract_name
+        key = (symbol_id, contract_type, contract_name)
+        if key in ContractTrade._trades_info:
+            raise ValueError(f'Combinação {symbol_id}/{contract_type}:{contract_name} já existe.')
+        
+        # Armazena os valores
+        self._symbol = symbol
+        self._contract = contract
+        self._min_time = min_time
+        self._max_time = max_time
+        ContractTrade._trades_info[key] = (min_time, max_time)
+        ContractTrade.trades.append(self)
     
     @classmethod
-    def add_contracts(cls, contract_type, contract_name):
-        """Adiciona contratos válidos ao cache global, verificando unicidade de contract_name."""
-        for existing_type, names in cls._contracts_info.items():
-            if contract_name in names and existing_type != contract_type:
-                raise ValueError(f'Contract name {contract_name} já existe em {existing_type}.')
-        cls._contracts_info.setdefault(contract_type, set()).add(contract_name)
+    def add_trade(cls, symbol, contract, min_time, max_time):
+        """Adiciona uma combinação válida de símbolo/contrato ao cache global, verificando unicidade."""
+        if not isinstance(symbol, ContractSymbol):
+            raise ValueError(f'Symbol {symbol} deve ser uma instância de ContractSymbol.')
+        if not isinstance(contract, ContractType):
+            raise ValueError(f'Contract {contract} deve ser uma instância de ContractType.')
+        if not isinstance(min_time, DurationContract) or not isinstance(max_time, DurationContract):
+            raise ValueError(f'min_time e max_time devem ser instâncias de ContractDuration.')
+        
+        symbol_id = symbol.symbol_id
+        contract_type = contract.contract_type
+        contract_name = contract.contract_name
+        key = (symbol_id, contract_type, contract_name)
+        if key in cls._trades_info:
+            raise ValueError(f'Combinação {symbol_id}/{contract_type}:{contract_name} já existe.')
+        
+        cls._trades_info[key] = (min_time, max_time)
     
     @classmethod
-    def get_types(cls):
-        """Retorna todos os contract_type da lista _contracts_info."""
-        return list(cls._contracts_info.keys())
+    def get_trades_by_symbol(cls, symbol):
+        """Retorna todas as instâncias na lista trades que têm o mesmo symbol, ou False se não encontrada."""
+        if not isinstance(symbol, ContractSymbol):
+            return False
+        return [trade for trade in cls.trades if trade.symbol == symbol] or False
+    
+    @property
+    def symbol(self):
+        return self._symbol
+    
+    @property
+    def contract(self):
+        return self._contract
+    
+    @property
+    def min_time(self):
+        return self._min_time
+    
+    @property
+    def max_time(self):
+        return self._max_time
+    
+    def __str__(self):
+        return f'{self._symbol.symbol_id}/{self._contract.contract_type}:{self._contract.contract_name} ({self._min_time}-{self._max_time})'
+
+
+class ContractSymbol:
+    """Classe que cria símbolos para associação, só permitindo instâncias baseadas em tipos pré-configurados em symbols."""
+    
+    _symbols_info = {}  # Cache global de tipos e nomes de símbolos
+    symbols = []  # Lista global de instâncias de símbolos
+    
+    def __init__(self, symbol_id, symbol_name):
+        """Inicializa um símbolo válido. Verificando a unicidade de symbol_name e lançando erro caso já exista."""
+        # Verifica se symbol_name já existe em outro symbol_id
+        for existing_id, name in ContractSymbol._symbols_info.items():
+            if symbol_name == name and existing_id != symbol_id:
+                raise ValueError(f'Symbol name {symbol_name} já existe em {existing_id}.')
+        if symbol_id not in ContractSymbol._symbols_info or symbol_name != ContractSymbol._symbols_info.get(symbol_id):
+            raise ValueError(f'Símbolo {symbol_id}/{symbol_name} inválido.')
+        self._symbol_id = symbol_id
+        self._symbol_name = symbol_name
+        ContractSymbol.symbols.append(self)
+    
+    @classmethod
+    def add_symbols(cls, symbol_id, symbol_name):
+        """Adiciona símbolos válidos ao cache global, verificando unicidade de symbol_name."""
+        # Verifica unicidade de symbol_name entre todos os symbol_id
+        for existing_id, name in cls._symbols_info.items():
+            if symbol_name == name and existing_id != symbol_id:
+                raise ValueError(f'Symbol name {symbol_name} já existe em {existing_id}.')
+        cls._symbols_info[symbol_id] = symbol_name
+    
+    @classmethod
+    def get_ids(cls):
+        """Retorna todos os symbol_id da lista _symbols_info."""
+        return list(cls._symbols_info.keys())
     
     @classmethod
     def get_names(cls):
-        """Retorna todos os contract_name da lista _contracts_info."""
-        return [name for names in cls._contracts_info.values() for name in names]
+        """Retorna todos os symbol_name da lista _symbols_info."""
+        return list(cls._symbols_info.values())
     
     @classmethod
-    def get_type_by_name(cls, contract_name):
-        """Retorna o contract_type associado a um contract_name único, ou False se não encontrado."""
-        for contract_type, names in cls._contracts_info.items():
-            if contract_name in names:
-                return contract_type
+    def get_symbol_by_name(cls, symbol_name):
+        """Retorna a instância na lista symbols que tem o mesmo symbol_name, ou False se não encontrada."""
+        for symbol in cls.symbols:
+            if symbol.symbol_name == symbol_name:
+                return symbol
         return False
     
     @classmethod
-    def get_names_by_type(cls, contract_type):
-        """Retorna a lista de contract_names associados a um contract_type, ou False se não encontrado."""
-        return cls._contracts_info.get(contract_type, False)
-    
-    @classmethod
-    def get_contract_by_name(cls, contract_name):
-        """Retorna a instância na lista contracts que tem o mesmo contract_name, ou False se não encontrada."""
-        for contract in cls.contracts:
-            if contract.contract_name == contract_name:
-                return contract
+    def get_symbol_by_id(cls, symbol_id):
+        """Retorna a instância na lista symbols que tem o mesmo symbol_id, ou False se não encontrada."""
+        for symbol in cls.symbols:
+            if symbol.symbol_id == symbol_id:
+                return symbol
         return False
-        
-    @classmethod
-    def get_contracts_same_type_by_name(cls, contract_name):
-        """Retorna todas as instâncias na lista contracts que têm o mesmo contract_type dado um contract_name, ou False se não encontrada."""
-        contract_type = cls.get_type_by_name(contract_name)
-        if not contract_type:
-            return False
-        return [contract for contract in cls.contracts if contract.contract_type == contract_type]
-    
-    @classmethod
-    def get_contracts_by_type(cls, contract_type):
-        """Retorna todas as instâncias na lista contracts que têm o mesmo contract_type, ou False se não encontrada."""
-        if contract_type not in cls._contracts_info:
-            return False
-        return [contract for contract in cls.contracts if contract.contract_type == contract_type]
     
     @property
-    def contract_type(self):
-        return self._contract_type
-   
+    def symbol_id(self):
+        return self._symbol_id
+    
     @property
-    def contract_name(self):
-        return self._contract_name
+    def symbol_name(self):
+        return self._symbol_name
         
     def __str__(self):
-        return f'{self._contract_type}:{self.contract_name}'
+        return f'{self._symbol_id}:{self.symbol_name}'
     
+class DurationContract:
+    """Classe que representa e valida uma duração de contrato."""
+    duration_sufix = {'ticks': 't', 'seconds': 's', 'minutes': 'm', 'hours': 'h', 'days': 'd'}
+    instances = []  # Cache global de todas as instâncias criadas (agora público)
     
-
-class ContractTypes:
-    symmbols = {}
-    
-    def __init__(self):
-        self.symbols# ex: "R_10"
-        self.name # ex: "Volatility 10 Index"
-        self.min_time #
-
+    def __new__(cls, duration):
+        """Cria uma nova instância ou retorna uma existente se duplicada.
         
+        Retorna uma instância existente se já criada com os mesmos duração e tipo.
+        """
+        if not duration:
+            raise ValueError('Duração vazia.')
+        
+        try:
+            if not isinstance(duration, str):
+                raise ValueError(f'Duração deve ser string, recebido: {duration}')
+            
+            if len(duration) < 2:
+                raise ValueError(f'Duração deve ter pelo menos 2 caracteres (ex.: "1t"), recebido: {duration}')
+            
+            if duration[-1] not in list(cls.duration_sufix.values()):
+                raise ValueError(f'Formato inválido: {duration}. Deve ser "número" seguido de um dos sufixos (t, s, m, h, d) (ex.: "15m").')
+            
+            value = int(duration[:-1])
+            if value <= 0:
+                raise ValueError(f'Duração deve ser positiva, recebido: {duration}')
+        
+        except ValueError as e:
+            raise ValueError(f'Formato inválido: {duration}. Deve ser "número" seguido de um dos sufixos (t, s, m, h, d) (ex.: "15m").') from e
+        
+        else:
+            # Define atributos temporariamente para comparação
+            new_instance = object.__new__(cls)
+            new_instance._duration = value
+            new_instance._duration_type = duration[-1]
+            # Verifica duplicatas
+            for instance in cls.instances:
+                if new_instance == instance:
+                    return instance
+            return new_instance
     
+    def __init__(self, duration):
+        """Inicializa a duração após verificação em __new__."""
+        # Os atributos já foram definidos em __new__, então só adiciona ao cache
+        if self not in DurationContract.instances:
+            DurationContract.instances.append(self)
+    
+    def __eq__(self, value):
+        if not DurationContract.is_equals_types(self.duration_type, value.duration_type):
+            raise ValueError('Tipos de duração diferentes.')
+        return self.duration == value.duration
+    
+    def __lt__(self, value):
+        if not DurationContract.is_equals_types(self.duration_type, value.duration_type):
+            raise ValueError('Tipos de duração diferentes.')
+        return self.duration < value.duration
+    
+    def __le__(self, value):
+        if not DurationContract.is_equals_types(self.duration_type, value.duration_type):
+            raise ValueError('Tipos de duração diferentes.')
+        return self.duration <= value.duration
+    
+    def __gt__(self, value):
+        if not DurationContract.is_equals_types(self.duration_type, value.duration_type):
+            raise ValueError('Tipos de duração diferentes.')
+        return self.duration > value.duration
+    
+    def __ge__(self, value):
+        if not DurationContract.is_equals_types(self.duration_type, value.duration_type):
+            raise ValueError('Tipos de duração diferentes.')
+        return self.duration >= value.duration
+    
+    def __str__(self):
+        return f'{self._duration}{self._duration_type}'
+    
+    @property
+    def duration_type(self):
+        """Retorna o tipo da duração."""
+        return self._duration_type
+    
+    @property
+    def duration(self):
+        """Retorna o valor numérico da duração."""
+        return self._duration
+    
+    @staticmethod
+    def is_equals_types(*args):
+        if any(not isinstance(arg, DurationContract) for arg in args):
+            raise ValueError('Argumentos inválidos.')
+        return all(arg.duration_type == args[0].duration_type for arg in args)
+    
+    @staticmethod
+    def get_min_duration(*args):
+        if not DurationContract.is_equals_types(*args):
+            raise ValueError('Tipos de duração diferentes.')
+        return min(arg.duration for arg in args)
+    
+    @staticmethod
+    def get_max_duration(*args):
+        if not DurationContract.is_equals_types(*args):
+            raise ValueError('Tipos de duração diferentes.')
+        return max(arg.duration for arg in args)
+    
+    def get_all_mins(self, *args, equals=True):
+        """Retorna uma lista de instâncias de args com duração menor ou igual ao menor valor, com mesmo tipo."""
+        if not args or not DurationContract.is_equals_types(self, *args):
+            raise ValueError('Tipos de duração diferentes ou argumentos vazios.')
+        min_duration = DurationContract.get_min_duration(*args)
+        if equals:
+            return [arg for arg in args if arg.duration <= min_duration]
+        return [arg for arg in args if arg.duration < min_duration]
 
-class Contracts:
-    # Variável de classe para armazenar mercados, submercados e seus status
-    available_markets = {}
-
-    def __init__(self, conn):
-        self.conn = conn  # Composição com connection
-
-    async def fetch_instruments(self, market=None, submarket=None):
-        """Busca todos os instrumentos de negociação disponíveis, com filtro opcional por mercado ou submercado.
-
-        Atualiza available_markets com status open/close para mercados e submercados.
-
-        Args:
-            market (str, optional): Filtra por mercado (ex.: 'forex', 'synthetic_index').
-            submarket (str, optional): Filtra por submercado (ex.: 'minor_pairs', 'forex_basket').
-
-        Returns:
-            list: Lista de símbolos dos instrumentos.
-        """
-        if not self.conn._is_alive:
-            raise ValueError("Conexão não está ativa.")
-        try:
-            response = await self.conn._api.active_symbols({"active_symbols": "full"})
-            instruments = response.get("active_symbols", [])
-
-            # Inicializa available_markets
-            self.available_markets = {}
-
-            # Preenche available_markets com mercados, submercados e status
-            for symbol in instruments:
-                market_name = symbol.get("market")
-                submarket_name = symbol.get("submarket")
-                is_open = symbol.get("open", 0) == 1  # 1 para open, 0 para close
-
-                if market_name and submarket_name:
-                    # Inicializa o mercado, se não existir
-                    if market_name not in self.available_markets:
-                        self.available_markets[market_name] = {
-                            "status": "close",
-                            "submarkets": {}
-                        }
-
-                    # Inicializa o submercado, se não existir
-                    if submarket_name not in self.available_markets[market_name]["submarkets"]:
-                        self.available_markets[market_name]["submarkets"][submarket_name] = {
-                            "status": "close"
-                        }
-
-                    # Atualiza o status do submercado para open se o instrumento estiver aberto
-                    if is_open:
-                        self.available_markets[market_name]["submarkets"][submarket_name]["status"] = "open"
-                        self.available_markets[market_name]["status"] = "open"
-
-            # Filtra por mercado e/ou submercado, se especificado
-            filtered_instruments = []
-            for symbol in instruments:
-                if market and symbol.get("market") != market:
-                    continue
-                if submarket and symbol.get("submarket") != submarket:
-                    continue
-                filtered_instruments.append(symbol["symbol"])
-            print(f"Instrumentos disponíveis (mercado={market}, submercado={submarket}): {filtered_instruments}")
-            return filtered_instruments
-        except Exception as e:
-            print(f"Erro ao buscar instrumentos: {e}")
-            raise
-
-    async def get_contract_details(self, instrument):
-        """Obtém os detalhes dos contratos para um instrumento específico."""
-        if not self.conn._is_alive:
-            raise ValueError("Conexão não está ativa.")
-        try:
-            response = await self.conn._api.contracts_for({"contracts_for": instrument})
-            contracts = response.get("contracts_for", {}).get("available", [])
-            if not contracts:
-                raise ValueError(f"Nenhum contrato disponível para o instrumento {instrument}")
-            print(f"Detalhes dos contratos para {instrument}: {contracts}")
-            return contracts  # Retorna a lista de contratos disponíveis
-        except KeyError as e:
-            print(f"Erro de chave ao obter contratos para {instrument}: {e}")
-            raise
-        except Exception as e:
-            print(f"Erro ao obter detalhes dos contratos para {instrument}: {e}")
-            raise
-
-    async def get_asset_index(self):
-        """Obtém o índice de ativos disponíveis na API Deriv.
-
-        Returns:
-            dict: Resposta da API com informações sobre os ativos.
-        """
-        if not self.conn._is_alive:
-            raise ValueError("Conexão não está ativa.")
-        try:
-            response = await self.conn._api.asset_index({"asset_index": 1})
-            print(f"Índice de ativos: {response}")
-            return response
-        except Exception as e:
-            print(f"Erro ao obter índice de ativos: {e}")
-            raise
-
-    def format_contract_details(self, contracts):
-        """Formata os detalhes dos contratos para uma saída mais legível.
-
-        Args:
-            contracts (list): Lista de contratos retornada por contracts_for["available"].
-
-        Returns:
-            dict: Dicionário organizado com os contratos.
-        """
-        if not isinstance(contracts, list):
-            print(f"Erro: Contratos devem ser uma lista, recebido: {type(contracts)}")
-            return {}
-        formatted = {}
-        for contract in contracts:
-            contract_type = contract.get("contract_type", "unknown")
-            formatted[contract_type] = {
-                "display": contract.get("contract_display", "N/A"),
-                "stake": contract.get("default_stake", 0),
-                "duration": f"{contract.get('min_contract_duration', 'N/A')} a {contract.get('max_contract_duration', 'N/A')}",
-                "sentiment": contract.get("sentiment", "N/A"),
-                "barriers": contract.get("barriers", "N/A")
-            }
-        return formatted
-
-if __name__ == "__main__":
-    async def test_contracts():
-        # Instancia a conexão
-        conn = connection
-        await conn.connect()
-        try:
-            contracts = Contracts(conn)
-            # Testa o índice de ativos
-            assets = await contracts.get_asset_index()
-            # Testa com filtro por mercado e submercado
-            instruments = await contracts.fetch_instruments(market="forex", submarket="minor_pairs")
-            print(f"Mercados disponíveis e seus submercados com status: {Contracts.available_markets}")
-            if instruments:
-                for instrument in instruments[:3]:  # Testa os primeiros 3 instrumentos
-                    try:
-                        details = await contracts.get_contract_details(instrument)
-                        formatted_details = contracts.format_contract_details(details)
-                        print(f"Contratos formatados para {instrument}: {formatted_details}")
-                    except ValueError as e:
-                        print(f"Instrumento {instrument} indisponível: {e}")
-        except Exception as e:
-            print(f"Erro no teste: {e}")
-        finally:
-            await conn.disconnect()
-
-    asyncio.run(test_contracts())
+    def get_all_maxs(self, *args, equals=True):
+        """Retorna uma lista de instâncias de args com duração maior ou igual ao maior valor, com mesmo tipo."""
+        if not args or not DurationContract.is_equals_types(self, *args):
+            raise ValueError('Tipos de duração diferentes ou argumentos vazios.')
+        max_duration = DurationContract.get_max_duration(*args)
+        if equals:
+            return [arg for arg in args if arg.duration >= max_duration]
+        return [arg for arg in args if arg.duration > max_duration]
