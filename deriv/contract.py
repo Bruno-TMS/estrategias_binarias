@@ -79,39 +79,49 @@ class ContractTrade:
 class ContractSymbol:
     """Classe que cria símbolos para associação, só permitindo instâncias baseadas em tipos pré-configurados em symbols."""
     
-    _symbols_info = {}  # Cache global de tipos e nomes de símbolos
-    symbols = []  # Lista global de instâncias de símbolos
+    symbols = []  # Lista global de instâncias de símbolos (agora único ponto de cache)
     
-    def __init__(self, symbol_id, symbol_name):
-        """Inicializa um símbolo válido. Verificando a unicidade de symbol_name e lançando erro caso já exista."""
-        # Verifica se symbol_name já existe em outro symbol_id
-        for existing_id, name in ContractSymbol._symbols_info.items():
-            if symbol_name == name and existing_id != symbol_id:
-                raise ValueError(f'Symbol name {symbol_name} já existe em {existing_id}.')
-        if symbol_id not in ContractSymbol._symbols_info or symbol_name != ContractSymbol._symbols_info.get(symbol_id):
-            raise ValueError(f'Símbolo {symbol_id}/{symbol_name} inválido.')
-        self._symbol_id = symbol_id
-        self._symbol_name = symbol_name
-        ContractSymbol.symbols.append(self)
+    def __new__(cls, symbol_id, symbol_name):
+        """Cria uma nova instância ou retorna uma existente se duplicada."""
+        if not symbol_id or not symbol_name:
+            raise ValueError('symbol_id e symbol_name não podem ser vazios.')
+        
+        try:
+            if not isinstance(symbol_id, (str, int)) or not isinstance(symbol_name, str):
+                raise ValueError(f'symbol_id deve ser str ou int, symbol_name deve ser str, recebido: {symbol_id}, {symbol_name}')
+            
+            # Validação simples (unicidade será verificada pelo cache)
+            if any(not isinstance(s._symbol_id, (str, int)) or not isinstance(s._symbol_name, str) for s in cls.symbols):
+                raise ValueError('Símbolos existentes inválidos.')
+        
+        except ValueError as e:
+            raise ValueError(f'Valores inválidos para symbol_id ou symbol_name: {symbol_id}, {symbol_name}') from e
+        
+        else:
+            # Verifica duplicatas no cache
+            for symbol in cls.symbols:
+                if symbol.symbol_id == symbol_id or symbol.symbol_name == symbol_name:
+                    return symbol
+            new_instance = super().__new__(cls)
+            new_instance._symbol_id = symbol_id
+            new_instance._symbol_name = symbol_name
+            return new_instance
     
-    @classmethod
-    def add_symbols(cls, symbol_id, symbol_name):
-        """Adiciona símbolos válidos ao cache global, verificando unicidade de symbol_name."""
-        # Verifica unicidade de symbol_name entre todos os symbol_id
-        for existing_id, name in cls._symbols_info.items():
-            if symbol_name == name and existing_id != symbol_id:
-                raise ValueError(f'Symbol name {symbol_name} já existe em {existing_id}.')
-        cls._symbols_info[symbol_id] = symbol_name
+    def __init__(self):
+        """Inicializa um símbolo válido após verificação em __new__."""
+        # Adiciona ao cache se não for duplicata (já verificado em __new__)
+        if self not in ContractSymbol.symbols:
+            ContractSymbol.symbols.append(self)
     
     @classmethod
     def get_ids(cls):
-        """Retorna todos os symbol_id da lista _symbols_info."""
-        return list(cls._symbols_info.keys())
+        """Retorna todos os symbol_id da lista symbols."""
+        return [symbol.symbol_id for symbol in cls.symbols]
     
     @classmethod
     def get_names(cls):
-        """Retorna todos os symbol_name da lista _symbols_info."""
-        return list(cls._symbols_info.values())
+        """Retorna todos os symbol_name da lista symbols."""
+        return [symbol.symbol_name for symbol in cls.symbols]
     
     @classmethod
     def get_symbol_by_name(cls, symbol_name):
@@ -139,6 +149,12 @@ class ContractSymbol:
         
     def __str__(self):
         return f'{self._symbol_id}:{self.symbol_name}'
+    
+    def __eq__(self, value):
+        if not isinstance(value, ContractSymbol):
+            raise ValueError('Comparação inválida, deve ser com ContractSymbol.')
+        return self.symbol_id == value.symbol_id and self.symbol_name == value.symbol_name
+    
     
 class DurationContract:
     """Classe que representa e valida uma duração de contrato."""
@@ -181,7 +197,7 @@ class DurationContract:
                     return instance
             return new_instance
     
-    def __init__(self, duration):
+    def __init__(self):
         """Inicializa a duração após verificação em __new__."""
         # Os atributos já foram definidos em __new__, então só adiciona ao cache
         if self not in DurationContract.instances:
