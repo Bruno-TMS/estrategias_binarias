@@ -10,7 +10,7 @@ from csv import DictReader
 from pathlib import Path
 
 # Caminho absoluto do arquivo CSV
-KNV_FILE = Path("deriv/secrets.csv").absolute()
+KNV_FILE = Path('connection/secrets.csv').absolute()
 """Arquivo CSV com chaves de acesso no formato:
     key,name,value
     Exemplo: 'app','appteste','xxxx'
