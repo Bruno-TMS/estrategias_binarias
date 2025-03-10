@@ -1,7 +1,10 @@
 import pprint
 import asyncio
+from deriv.connection import connect, disconnect  # Importamos as funções de conexão
+from deriv_api import DerivAPI  # Para compatibilidade com a chamada asset_index
+from datetime import datetime
 
-# Classes ajustadas
+# Classes (mantidas intactas)
 class ContractSymbol:
     """Classe que cria símbolos para associação, só permitindo instâncias baseadas em tipos pré-configurados em symbols."""
     
@@ -411,7 +414,7 @@ class ContractTrade:
     
     @classmethod
     def relatorio(cls):
-        """Exibe um relatório organizado de todas as negociações em cache usando pprint."""
+        """Exibe um relatório organizado de todas as negociações em cache usando pprint, ordenado por symbol_id."""
         trades_data = {
             f"Trade {i}": {
                 "symbol_id": trade.symbol.symbol_id,
@@ -420,7 +423,7 @@ class ContractTrade:
                 "contract_name": trade.contract.contract_name,
                 "min_time": trade.min_time,
                 "max_time": trade.max_time
-            } for i, trade in enumerate(cls.trades)
+            } for i, trade in enumerate(sorted(cls.trades, key=lambda x: x.symbol.symbol_id))
         }
         pprint.pprint(trades_data)
     
@@ -432,28 +435,16 @@ class ContractTrade:
                 self.min_time == value.min_time and 
                 self.max_time == value.max_time)
 
-# Simulação de uma classe de conexão (substitua pela sua implementação real)
-class Connection:
-    async def asset_index(self, request):
-        # Dados fictícios baseados no exemplo fornecido anteriormente
-        return {
-            "asset_index": [
-                ["frxAUDCAD", "AUD/CAD", [["callput", "Rise/Fall", "15m", "365d"], ["callputequal", "Rise/Fall Equal", "15m", "365d"]]],
-                ["1HZ10V", "Volatility 10 (1s) Index", [["callput", "Rise/Fall", "1t", "365d"], ["digits", "Digits", "1t", "10t"]]],
-                ["cryBTCUSD", "BTC/USD", [["multiplier", "Multiply Up/Multiply Down", "", ""]]]
-            ],
-            "echo_req": {"asset_index": 1, "req_id": 2},
-            "msg_type": "asset_index",
-            "req_id": 2
-        }
-
-async def populate_contract_trade():
-    # Simulação da conexão
-    connection = Connection()
-    assets = await connection.asset_index({"asset_index": 1})
+# Função para popular as negociações com dados reais da API
+async def populate_contract_trade(connection):
+    """Popula as instâncias de ContractTrade usando os dados obtidos via API."""
+    assets_response = await connection.asset_index({"asset_index": 1})
+    if not assets_response or 'asset_index' not in assets_response:
+        raise ValueError("Nenhum dado de ativo retornado pela API.")
     
-    # Processa os dados de asset_index
-    for asset in assets["asset_index"]:
+    assets = assets_response['asset_index']
+    
+    for asset in assets:
         symbol_id, symbol_name, contracts = asset
         symbol = ContractSymbol(symbol_id, symbol_name)
         
@@ -469,8 +460,53 @@ async def populate_contract_trade():
             trade = ContractTrade(symbol, contract, min_time_obj, max_time_obj)
 
 if __name__ == "__main__":
-    # Executa a função assíncrona para popular ContractTrade
-    asyncio.run(populate_contract_trade())
-    
-    # Imprime o relatório
-    ContractTrade.relatorio()
+    async def test_real_connection():
+        """Testa a conexão real, busca os ativos e gera o relatório ordenado por symbol_id."""
+        from deriv import connection as conn_module  # Importa o módulo connection para acessar _api e _is_alive
+
+        start_time = datetime.now().strftime("%y/%m/%d %H:%M")
+        print(f"Iniciando teste de conexão real {start_time}")
+        status = "Sucesso"
+        try:
+            # Instancia um objeto Connection que usa a conexão de connection.py
+            class ConnectionAdapter:
+                def __init__(self):
+                    self._api = None
+                
+                async def connect(self):
+                    await connect()  # Usa a função connect de connection.py
+                    self._api = conn_module._api  # Acessa a instância de DerivAPI
+                    if self._api is None or not conn_module._is_alive:
+                        raise ValueError("Falha ao estabelecer a conexão com a API Deriv.")
+                
+                async def disconnect(self):
+                    await disconnect()  # Usa a função disconnect de connection.py
+                    self._api = None
+                
+                async def asset_index(self, request):
+                    if self._api is None or not conn_module._is_alive:
+                        raise ValueError("Conexão não ativa. Chame connect() primeiro.")
+                    return await self._api.asset_index(request)
+
+            # Instancia o adaptador
+            connection = ConnectionAdapter()
+            await connection.connect()
+
+            # Popula as negociações com dados reais
+            await populate_contract_trade(connection)
+
+            # Exibe o relatório ordenado por symbol_id
+            ContractTrade.relatorio()
+
+            # Desconecta após o teste
+            await connection.disconnect()
+            print(f"Estado da conexão após desconexão: {conn_module._is_alive}")
+        
+        except Exception as e:
+            print(f"Erro durante o teste: {e}")
+            status = "Falha"
+        finally:
+            end_time = datetime.now().strftime("%y/%m/%d %H:%M")
+            print(f"Finalizando teste de conexão real - Status: {status} {end_time}")
+
+    asyncio.run(test_real_connection())
