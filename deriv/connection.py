@@ -20,6 +20,9 @@ class AppDashboard:
             app_id = None
             token = None
            
+            if not KNV_FILE.exists():
+               raise FileNotFoundError(f"Arquivo CSV '{KNV_FILE}' não encontrado.")
+           
             with open(KNV_FILE, "r", encoding="utf-8") as csv_file:
                 csv_reader = DictReader(csv_file)
                 for row in csv_reader:
@@ -55,7 +58,10 @@ class AppDashboard:
     @classmethod
     def get_key_names(cls):
         key_names = {}
-    
+        
+        if not KNV_FILE.exists():
+               raise FileNotFoundError(f"Arquivo CSV '{KNV_FILE}' não encontrado.")
+        
         with open(KNV_FILE, "r", encoding="utf-8") as csv_file:
             csv_reader = DictReader(csv_file)
             for row in csv_reader:
@@ -68,17 +74,14 @@ class UserAccount:
     def __new__(cls, balance, currency, currency_type, is_virtual, loginid, scopes):
         if cls._instance is None:
             cls._instance = super().__new__(cls)
-            cls._instance.__init__(balance, currency, currency_type, is_virtual, loginid, scopes)
+            cls._instance._balance = balance
+            cls._instance._currency = currency
+            cls._instance._currency_type = currency_type
+            cls._instance._is_virtual = is_virtual
+            cls._instance._loginid = loginid
+            cls._instance._scopes = scopes
+            print(f"Usuário logado com sucesso: LoginID={cls._instance._loginid}, Balance={cls._instance._balance} {cls._instance._currency}, Currency Type={cls._instance._currency_type}, Is Virtual={cls._instance._is_virtual}, Scopes={cls._instance._scopes}")
         return cls._instance
-
-    def __init__(self, balance, currency, currency_type, is_virtual, loginid, scopes):
-        self._balance = balance
-        self._currency = currency
-        self._currency_type = currency_type
-        self._is_virtual = is_virtual
-        self._loginid = loginid
-        self._scopes = scopes
-        print(f"Usuário logado com sucesso: LoginID={self._loginid}, Balance={self._balance} {self._currency}, Currency Type={self._currency_type}, Is Virtual={self._is_virtual}, Scopes={self._scopes}")
 
     @property
     def balance(self):
