@@ -3,8 +3,9 @@ import websockets
 from deriv_api import DerivAPI, APIError
 from csv import DictReader
 from pathlib import Path
+from datetime import datetime
 
-KNV_FILE =Path(Path(__file__).parent,"knv.csv")
+KNV_FILE = Path(Path(__file__).parent, "knv.csv")
 
 class AppDashboard:
     _instance = None
@@ -80,7 +81,6 @@ class UserAccount:
             cls._instance._is_virtual = is_virtual
             cls._instance._loginid = loginid
             cls._instance._scopes = scopes
-            print(f"Usuário logado com sucesso: LoginID={cls._instance._loginid}, Balance={cls._instance._balance} {cls._instance._currency}, Currency Type={cls._instance._currency_type}, Is Virtual={cls._instance._is_virtual}, Scopes={cls._instance._scopes}")
         return cls._instance
 
     @property
@@ -111,6 +111,9 @@ class Connector:
     _instance = None
     _api = None
     _connection = None
+    _connection_open = None
+    _connection_close = None
+    _disconnect_status = None
 
     def __new__(cls, app_id, token):
         if cls._instance is None:
@@ -118,16 +121,81 @@ class Connector:
         return cls._instance
 
     async def connect(self, app_id, token):
+        if self.is_alive:
+            print("Já conectado ao servidor.")
+            return await self._api.authorize(token)
         response = None
         try:
             self._connection = await websockets.connect(f"wss://ws.binaryws.com/websockets/v3?app_id={app_id}")
             self._api = DerivAPI(connection=self._connection)
             response = await asyncio.wait_for(self._api.authorize(token), timeout=5.0)
+            self._connection_open = datetime.now()
+            self._connection_close = None
+            self._disconnect_status = None
         except APIError as e:
             print(f"Falha ao conectar à API Deriv (APIError): {e}")
+            if self._connection and self._connection.closed:
+                self._connection_close = datetime.now()
+                self._disconnect_status = "falha"
+            self._connection = None
+            self._api = None
         except Exception as e:
             print(f"Falha ao conectar à API Deriv (Outro erro): {e}")
+            if self._connection and self._connection.closed:
+                self._connection_close = datetime.now()
+                self._disconnect_status = "falha"
+            self._connection = None
+            self._api = None
         return response
+
+    async def disconnect(self):
+        if not self.is_alive:
+            print("Conexão já está fechada.")
+            return
+        await self._connection.close()
+        self._connection_close = datetime.now()
+        self._disconnect_status = "normal"
+        self._connection = None
+        self._api = None
+
+    async def send_request(self, msg):
+        if not self.is_alive:
+            print("Não conectado ao servidor.")
+            return None
+        response = None
+        try:
+            response = await self._api.send(msg)
+        except APIError as e:
+            print(f"Erro na requisição à API Deriv (APIError): {e}")
+            if self._connection and self._connection.closed:
+                self._connection_close = datetime.now()
+                self._disconnect_status = "falha"
+                self._connection = None
+                self._api = None
+        except Exception as e:
+            print(f"Erro na requisição (Outro erro): {e}")
+            if self._connection and self._connection.closed:
+                self._connection_close = datetime.now()
+                self._disconnect_status = "falha"
+                self._connection = None
+                self._api = None
+        return response
+
+    @property
+    def is_alive(self):
+        return self._connection is not None and not self._connection.closed
+
+    @property
+    def connection_open(self):
+        return self._connection_open
+
+    @property
+    def connection_close(self):
+        return self._connection_close
+
+    @property
+    def disconnect_status(self):
+        return self._disconnect_status
 
 class ConnManager:
     _instance = None
@@ -143,17 +211,46 @@ class ConnManager:
         return cls._instance
 
     async def connect(self):
-        response = await self._connector.connect(self._dashboard.app_id, self._dashboard.token)
-        if response and 'authorize' in response:
-            self._user_account = UserAccount(
-                balance=response['authorize']['balance'],
-                currency=response['authorize']['currency'],
-                currency_type=response['authorize']['account_list'][0]['currency_type'],
-                is_virtual=response['authorize']['is_virtual'],
-                loginid=response['authorize']['loginid'],
-                scopes=response['authorize']['scopes']
-            )
-        print(f"Resposta do servidor: {response}")
+        if not self._connector.is_alive:
+            response = await self._connector.connect(self._dashboard.app_id, self._dashboard.token)
+            if response:
+                self._user_account = UserAccount(
+                    balance=response['authorize']['balance'],
+                    currency=response['authorize']['currency'],
+                    currency_type=response['authorize']['account_list'][0]['currency_type'],
+                    is_virtual=response['authorize']['is_virtual'],
+                    loginid=response['authorize']['loginid'],
+                    scopes=response['authorize']['scopes']
+                )
+                print(f"Usuário logado com sucesso: LoginID={self._user_account.loginid}, Balance={self._user_account.balance} {self._user_account.currency}, Currency Type={self._user_account.currency_type}, Is Virtual={self._user_account.is_virtual}, Scopes={self._user_account.scopes}")
+        else:
+            print("Conexão já está ativa.")
+
+    async def disconnect(self):
+        await self._connector.disconnect()
+        if not self._connector.is_alive:
+            print("Usuário deslogado")
+            self._user_account = None
+        print(f"Conexão desconectada: Status={self._connector.disconnect_status}, Fechada em={self._connector.connection_close}")
+
+    async def send_request(self, msg):
+        return await self._connector.send_request(msg)
+
+    @property
+    def user_account(self):
+        return self._user_account
+
+class Request:
+    _instance = None
+
+    def __new__(cls):
+        if cls._instance is None:
+            cls._instance = super().__new__(cls)
+        return cls._instance
+
+    @property
+    def balance(self):
+        return {"balance": 1}
 
 if __name__ == "__main__":
     async def test_connection():
@@ -169,5 +266,11 @@ if __name__ == "__main__":
         print(f"Tentando conectar com app_name={app_name}, token_name={token_name}...")
         manager = ConnManager(app_name, token_name)
         await manager.connect()
+        await asyncio.sleep(2)  # Simula espera para testar estado
+        print(f"Estado da conexão após espera: {manager._connector.is_alive}")
+        req = Request()
+        response = await manager.send_request(req.balance)
+        print(f"Resposta do saldo: {response}")
+        await manager.disconnect()
 
     asyncio.run(test_connection())
