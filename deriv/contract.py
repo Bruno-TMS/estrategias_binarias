@@ -353,6 +353,41 @@ class ContractTrade:
     def get_all_instances(cls):
         return sorted(cls.trades, key=lambda x: f"{x.symbol.symbol_name}:{x.contract.contract_type}")
     
+    @classmethod
+    def get_unique_min_max_pairs(cls):
+        """Retorna uma lista de tuplas com os pares únicos de min_time e max_time."""
+        unique_pairs = set()
+        for trade in cls.trades:
+            min_str = f"{trade.min_time[0]}{trade.min_time[1]}" if trade.min_time[0] is not None else "None"
+            max_str = f"{trade.max_time[0]}{trade.max_time[1]}" if trade.max_time[0] is not None else "None"
+            unique_pairs.add((min_str, max_str))
+        return sorted(list(unique_pairs), key=lambda x: (x[0], x[1]))
+    
+    @classmethod
+    def get_by_duration_pair(cls, duration_pair):
+        """
+        Retorna uma lista de trades que possuem o par específico de min_time e max_time.
+        O parâmetro duration_pair deve estar no formato 'Min: Xt - Max: Yz', ex.: 'Min: 2t - Max: 5t'.
+        """
+        try:
+            # Extrai min_time e max_time do formato 'Min: Xt - Max: Yz'
+            min_part, max_part = duration_pair.split(' - ')
+            min_str = min_part.split(': ')[1].strip()
+            max_str = max_part.split(': ')[1].strip()
+        except (ValueError, IndexError):
+            raise ValueError("Formato inválido. Use 'Min: Xt - Max: Yz', ex.: 'Min: 2t - Max: 5t'")
+
+        # Filtra trades com o par exato de min_time e max_time
+        matching_trades = [
+            trade for trade in cls.trades
+            if (f"{trade.min_time[0]}{trade.min_time[1]}" if trade.min_time[0] is not None else "None") == min_str
+            and (f"{trade.max_time[0]}{trade.max_time[1]}" if trade.max_time[0] is not None else "None") == max_str
+        ]
+        return sorted(matching_trades, key=lambda x: f"{x.symbol.symbol_name}:{x.contract.contract_type}") or False
+    
+    def __str__(self):
+        return f"  {self.symbol} - {self.contract} - Min: {self.min_time[0]}{self.min_time[1] or ''} - Max: {self.max_time[0]}{self.max_time[1] or ''}"
+    
     def __eq__(self, value):
         if not isinstance(value, ContractTrade):
             raise ValueError('Comparação inválida, deve ser com ContractTrade.')
@@ -387,28 +422,37 @@ if __name__ == "__main__":
         print('-'*150)
         print("Negociações em cache:")
         for trade in ContractTrade.get_all_instances():
-            print(f"  {trade.symbol} - {trade.contract} - Min: {trade.min_time[0]}{trade.min_time[1] or ''} - Max: {trade.max_time[0]}{trade.max_time[1] or ''}")
+            print(trade)
 
-        print('-'*150)# Testando todos os classmethods da ContractTrade
+        print('-'*150)
         print("\nTeste: get_trades_by_symbol_id('frxEURUSD'):")
         for trade in ContractTrade.get_trades_by_symbol_id("frxEURUSD") or []:
-            print(f"  {trade.symbol} - {trade.contract} - Min: {trade.min_time[0]}{trade.min_time[1] or ''} - Max: {trade.max_time[0]}{trade.max_time[1] or ''}")
+            print(trade)
 
         print('-'*150)
         print("\nTeste: get_trades_by_symbol_name('EUR/USD'):")
         for trade in ContractTrade.get_trades_by_symbol_name("EUR/USD") or []:
-            print(f"  {trade.symbol} - {trade.contract} - Min: {trade.min_time[0]}{trade.min_time[1] or ''} - Max: {trade.max_time[0]}{trade.max_time[1] or ''}")
-        
+            print(trade)
         
         print('-'*150)
         print("\nTeste: get_trades_by_contract_type('callput'):")
         for trade in ContractTrade.get_trades_by_contract_type("callput") or []:
-            print(f"  {trade.symbol} - {trade.contract} - Min: {trade.min_time[0]}{trade.min_time[1] or ''} - Max: {trade.max_time[0]}{trade.max_time[1] or ''}")
+            print(trade)
         
         print('-'*150)
         print("\nTeste: get_trades_by_contract_name('Rise/Fall'):")
         for trade in ContractTrade.get_trades_by_contract_name("Rise/Fall") or []:
-            print(f"  {trade.symbol} - {trade.contract} - Min: {trade.min_time[0]}{trade.min_time[1] or ''} - Max: {trade.max_time[0]}{trade.max_time[1] or ''}")
+            print(trade)
+
+        print('-'*150)
+        print("\nTeste: get_unique_min_max_pairs():")
+        for min_time, max_time in ContractTrade.get_unique_min_max_pairs():
+            print(f"  Min: {min_time} - Max: {max_time}")
+
+        print('-'*150)
+        print("\nTeste: get_by_duration_pair('Min: 2t - Max: 5t'):")
+        for trade in ContractTrade.get_by_duration_pair("Min: 2t - Max: 5t") or []:
+            print(trade)
 
         await manager.disconnect()
 
