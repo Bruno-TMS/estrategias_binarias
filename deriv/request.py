@@ -9,3 +9,7 @@ class Request:
     @property
     def balance(self):
         return {"balance": 1}
+    
+    @property
+    def asset_index(self):
+        return {"asset_index": 1}
