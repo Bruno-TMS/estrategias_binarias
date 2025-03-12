@@ -350,30 +350,6 @@ class ContractTrade:
         return [trade for trade in cls.trades if trade.contract.contract_name == contract_name] or False
     
     @classmethod
-    def get_trades_by_min_time(cls, duration_value):
-        return [trade for trade in cls.trades if trade.min_time[0] is not None and trade.min_time[0] == duration_value] or False
-    
-    @classmethod
-    def get_trades_by_max_time(cls, duration_value):
-        return [trade for trade in cls.trades if trade.max_time[0] is not None and trade.max_time[0] == duration_value] or False
-    
-    @classmethod
-    def get_trades_with_min_below(cls, duration_value):
-        return [trade for trade in cls.trades if trade.min_time[0] is not None and trade.min_time[0] < duration_value] or False
-    
-    @classmethod
-    def get_trades_with_min_above(cls, duration_value):
-        return [trade for trade in cls.trades if trade.min_time[0] is not None and trade.min_time[0] > duration_value] or False
-    
-    @classmethod
-    def get_trades_with_max_below(cls, duration_value):
-        return [trade for trade in cls.trades if trade.max_time[0] is not None and trade.max_time[0] < duration_value] or False
-    
-    @classmethod
-    def get_trades_with_max_above(cls, duration_value):
-        return [trade for trade in cls.trades if trade.max_time[0] is not None and trade.max_time[0] > duration_value] or False
-    
-    @classmethod
     def get_all_instances(cls):
         return sorted(cls.trades, key=lambda x: f"{x.symbol.symbol_name}:{x.contract.contract_type}")
     
@@ -408,18 +384,32 @@ if __name__ == "__main__":
         manager = ConnManager("app_demo", "token_demo")
         await manager.connect()
         await populate_contract_data(manager)
-        print("Durações em cache:")
-        for instance in DurationContract.get_all_instances():
-            print(f"  {instance}")
-        print("Símbolos em cache:")
-        for symbol in ContractSymbol.get_all_instances():
-            print(f"  {symbol}")
-        print("Tipos de contrato em cache:")
-        for contract in ContractType.get_all_instances():
-            print(f"  {contract}")
+        print('-'*150)
         print("Negociações em cache:")
         for trade in ContractTrade.get_all_instances():
             print(f"  {trade.symbol} - {trade.contract} - Min: {trade.min_time[0]}{trade.min_time[1] or ''} - Max: {trade.max_time[0]}{trade.max_time[1] or ''}")
+
+        print('-'*150)# Testando todos os classmethods da ContractTrade
+        print("\nTeste: get_trades_by_symbol_id('frxEURUSD'):")
+        for trade in ContractTrade.get_trades_by_symbol_id("frxEURUSD") or []:
+            print(f"  {trade.symbol} - {trade.contract} - Min: {trade.min_time[0]}{trade.min_time[1] or ''} - Max: {trade.max_time[0]}{trade.max_time[1] or ''}")
+
+        print('-'*150)
+        print("\nTeste: get_trades_by_symbol_name('EUR/USD'):")
+        for trade in ContractTrade.get_trades_by_symbol_name("EUR/USD") or []:
+            print(f"  {trade.symbol} - {trade.contract} - Min: {trade.min_time[0]}{trade.min_time[1] or ''} - Max: {trade.max_time[0]}{trade.max_time[1] or ''}")
+        
+        
+        print('-'*150)
+        print("\nTeste: get_trades_by_contract_type('callput'):")
+        for trade in ContractTrade.get_trades_by_contract_type("callput") or []:
+            print(f"  {trade.symbol} - {trade.contract} - Min: {trade.min_time[0]}{trade.min_time[1] or ''} - Max: {trade.max_time[0]}{trade.max_time[1] or ''}")
+        
+        print('-'*150)
+        print("\nTeste: get_trades_by_contract_name('Rise/Fall'):")
+        for trade in ContractTrade.get_trades_by_contract_name("Rise/Fall") or []:
+            print(f"  {trade.symbol} - {trade.contract} - Min: {trade.min_time[0]}{trade.min_time[1] or ''} - Max: {trade.max_time[0]}{trade.max_time[1] or ''}")
+
         await manager.disconnect()
 
     asyncio.run(test_contract())
