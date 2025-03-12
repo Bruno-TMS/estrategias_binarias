@@ -236,6 +236,17 @@ class ConnManager:
     async def send_request(self, msg):
         return await self._connector.send_request(msg)
 
+    async def update_balance(self):
+        if not self._connector.is_alive:
+            print("Não conectado ao servidor para atualizar saldo.")
+            return
+        if self._user_account is None:
+            print("Nenhum usuário logado para atualizar saldo.")
+            return
+        response = await self._connector.send_request({"balance": 1})
+        if response:
+            self._user_account._balance = response['balance']['balance']
+
     @property
     def user_account(self):
         return self._user_account
@@ -271,6 +282,8 @@ if __name__ == "__main__":
         req = Request()
         response = await manager.send_request(req.balance)
         print(f"Resposta do saldo: {response}")
+        await manager.update_balance()
+        print(f"Saldo atualizado: {manager.user_account.balance}")
         await manager.disconnect()
 
-    asyncio.run(test_connection())
+    asyncio.run(test_connection()) 
