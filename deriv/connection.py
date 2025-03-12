@@ -251,18 +251,6 @@ class ConnManager:
     def user_account(self):
         return self._user_account
 
-class Request:
-    _instance = None
-
-    def __new__(cls):
-        if cls._instance is None:
-            cls._instance = super().__new__(cls)
-        return cls._instance
-
-    @property
-    def balance(self):
-        return {"balance": 1}
-
 if __name__ == "__main__":
     async def test_connection():
         key_names = AppDashboard.get_key_names()
@@ -279,11 +267,7 @@ if __name__ == "__main__":
         await manager.connect()
         await asyncio.sleep(2)  # Simula espera para testar estado
         print(f"Estado da conexão após espera: {manager._connector.is_alive}")
-        req = Request()
-        response = await manager.send_request(req.balance)
-        print(f"Resposta do saldo: {response}")
-        await manager.update_balance()
-        print(f"Saldo atualizado: {manager.user_account.balance}")
         await manager.disconnect()
 
-    asyncio.run(test_connection()) 
+    asyncio.run(test_connection())   
+        
