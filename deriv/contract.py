@@ -385,23 +385,29 @@ class ContractTrade:
     
     @classmethod
     def get_unique_symbol_ids(cls):
-        """Retorna uma lista de symbol_id únicos presentes nos trades."""
+        """Retorna uma lista de symbol_id únicos presentes nos Trades."""
         return sorted(list({trade.symbol.symbol_id for trade in cls.trades}))
     
     @classmethod
     def get_unique_symbol_names(cls):
-        """Retorna uma lista de symbol_name únicos presentes nos trades."""
+        """Retorna uma lista de symbol_name únicos presentes nos Trades."""
         return sorted(list({trade.symbol.symbol_name for trade in cls.trades}))
     
     @classmethod
     def get_unique_contract_types(cls):
-        """Retorna uma lista de contract_type únicos presentes nos trades."""
+        """Retorna uma lista de contract_type únicos presentes nos Trades."""
         return sorted(list({trade.contract.contract_type for trade in cls.trades}))
     
     @classmethod
     def get_unique_contract_names(cls):
-        """Retorna uma lista de contract_name únicos presentes nos trades."""
+        """Retorna uma lista de contract_name únicos presentes nos Trades."""
         return sorted(list({trade.contract.contract_name for trade in cls.trades}))
+    
+    @classmethod
+    def get_contract_types_with_barrier(cls):
+        """Retorna uma lista de contract_type que usam barreiras."""
+        barrier_types = {'endsinout', 'staysinout', 'touchnotouch', 'turbos'}
+        return sorted([contract_type for contract_type in cls.get_unique_contract_types() if contract_type in barrier_types])
     
     def __str__(self):
         return f"  {self.symbol} - {self.contract} - Min: {self.min_time[0]}{self.min_time[1] or ''} - Max: {self.max_time[0]}{self.max_time[1] or ''}"
@@ -491,6 +497,11 @@ if __name__ == "__main__":
         print("\nTeste: get_unique_contract_names():")
         for contract_name in ContractTrade.get_unique_contract_names():
             print(f"  {contract_name}")
+
+        print('-'*150)
+        print("\nTeste: get_contract_types_with_barrier():")
+        for contract_type in ContractTrade.get_contract_types_with_barrier():
+            print(f"  {contract_type}")
 
         await manager.disconnect()
 
