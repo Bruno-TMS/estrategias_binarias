@@ -1,508 +1,301 @@
 import asyncio
-from connection import ConnManager
+from pprint import pprint as pp
+from connection import ConnManager, AppDashboard
 from request import Request
 
-class DurationContract:
-    _duration_sufix = {'ticks': ('t', 'o'), 'seconds': ('s', 'p'), 'minutes': ('m', 'q'), 'hours': ('h', 'r'), 'days': ('d', 's')}
-    instances = []
+class Symbol:
+    _symbols = []
+    _instance = None
     
-    def __new__(cls, duration):
-        if not duration:
-            raise ValueError('Duração vazia.')
+    def __new__(cls, *, symbol_id, symbol_name):
+        if cls._instance is None:
+            cls._instance = super().__new__(cls)
         
-        try:
-            if not isinstance(duration, str):
-                raise ValueError(f'Duração deve ser string, recebido: {duration}')
-            
-            if len(duration) < 2:
-                raise ValueError(f'Duração deve ter pelo menos 2 caracteres (ex.: "1t"), recebido: {duration}')
-            
-            if duration[-1] not in [sfx[0] for sfx in cls._duration_sufix.values()]:
-                raise ValueError(f'Formato inválido: {duration}. Deve ser "número" seguido de um dos sufixos (t, s, m, h, d) (ex.: "15m").')
-            
-            value = int(duration[:-1])
-            if value <= 0:
-                raise ValueError(f'Duração deve ser positiva, recebido: {duration}')
-        
-        except ValueError as e:
-            raise ValueError(f'Formato inválido: {duration}. Deve ser "número" seguido de um dos sufixos (t, s, m, h, d) (ex.: "15m").') from e
-        
-        else:
-            new_instance = object.__new__(cls)
-            new_instance._duration = value
-            new_instance._duration_type = duration[-1]
-            for instance in cls.instances:
-                if (instance._duration == value and instance._duration_type == duration[-1]):
-                    return instance
-            return new_instance
-    
-    def __init__(self, duration):
-        for instance in DurationContract.instances:
-            if (instance._duration == self._duration and instance._duration_type == self._duration_type):
-                return
-        DurationContract.instances.append(self)
-    
-    def __eq__(self, value):
-        if not DurationContract.is_equals_types(self.duration_type, value.duration_type):
-            raise ValueError('Tipos de duração diferentes para __eq__.')
-        return self.duration == value.duration
-    
-    def __lt__(self, value):
-        if not DurationContract.is_equals_types(self.duration_type, value.duration_type):
-            raise ValueError('Tipos de duração diferentes para __lt__.')
-        return self.duration < value.duration
-    
-    def __le__(self, value):
-        if not DurationContract.is_equals_types(self.duration_type, value.duration_type):
-            raise ValueError('Tipos de duração diferentes para __le__.')
-        return self.duration <= value.duration
-    
-    def __gt__(self, value):
-        if not DurationContract.is_equals_types(self.duration_type, value.duration_type):
-            raise ValueError('Tipos de duração diferentes para __gt__.')
-        return self.duration > value.duration
-    
-    def __ge__(self, value):
-        if not DurationContract.is_equals_types(self.duration_type, value.duration_type):
-            raise ValueError('Tipos de duração diferentes para __ge__.')
-        return self.duration >= value.duration
-    
-    def __str__(self):
-        return f'{self._duration}{self._duration_type}'
-    
-    @property
-    def duration_type(self):
-        return self._duration_type
-    
-    @property
-    def duration(self):
-        return self._duration
-    
-    @staticmethod
-    def is_equals_types(*args):
-        if any(not isinstance(arg, DurationContract) for arg in args):
-            raise ValueError('Argumentos inválidos para is_equals_types.')
-        return all(arg.duration_type == args[0].duration_type for arg in args)
-    
-    @staticmethod
-    def get_min_duration(*args):
-        if not DurationContract.is_equals_types(*args):
-            raise ValueError('Tipos de duração diferentes para get_min_duration.')
-        return min(arg.duration for arg in args)
-    
-    @staticmethod
-    def get_max_duration(*args):
-        if not DurationContract.is_equals_types(*args):
-            raise ValueError('Tipos de duração diferentes para get_max_duration.')
-        return max(arg.duration for arg in args)
-    
-    @staticmethod
-    def get_all_instances():
-        def get_key(duration, duration_type):
-            tempos_pesos = {k: v for k, v in DurationContract._duration_sufix.values()}
-            peso = tempos_pesos.get(duration_type)
-            return f"{peso}{duration:04d}"
-        return sorted(DurationContract.instances, key=lambda x: get_key(x.duration, x.duration_type))
-    
-    def get_all_mins(self, *args, equals=True):
-        if not args or not DurationContract.is_equals_types(self, *args):
-            raise ValueError('Tipos de duração diferentes ou argumentos vazios para get_all_mins.')
-        min_duration = DurationContract.get_min_duration(*args)
-        if equals:
-            return [arg for arg in args if arg.duration <= min_duration]
-        return [arg for arg in args if arg.duration < min_duration]
-
-    def get_all_maxs(self, *args, equals=True):
-        if not args or not DurationContract.is_equals_types(self, *args):
-            raise ValueError('Tipos de duração diferentes ou argumentos vazios para get_all_maxs.')
-        max_duration = DurationContract.get_max_duration(*args)
-        if equals:
-            return [arg for arg in args if arg.duration >= max_duration]
-        return [arg for arg in args if arg.duration > max_duration]
-
-class ContractSymbol:
-    symbols = []
-    
-    def __new__(cls, symbol_id, symbol_name):
         if not symbol_id or not symbol_name:
-            raise ValueError('symbol_id e symbol_name não podem ser vazios.')
+            raise ValueError('symbol_id e symbol_name devem ser fornecidos.')
         
         try:
-            if not isinstance(symbol_id, (str, int)) or not isinstance(symbol_name, str):
-                raise ValueError(f'symbol_id deve ser str ou int, symbol_name deve ser str, recebido: {symbol_id}, {symbol_name}')
+            if not isinstance(symbol_id, str) or not isinstance(symbol_name, str):
+                raise ValueError(f'symbol_id e symbol_name devem ser strings, recebido: {symbol_id}, {symbol_name}')
             
-            if any(not isinstance(s._symbol_id, (str, int)) or not isinstance(s._symbol_name, str) for s in cls.symbols):
-                raise ValueError('Símbolos existentes inválidos.')
+            symbol_tuple = (symbol_id, symbol_name)
+            if symbol_tuple not in cls._symbols:
+                cls._symbols.append(symbol_tuple)
         
         except ValueError as e:
-            raise ValueError(f'Valores inválidos para symbol_id ou symbol_name: {symbol_id}, {symbol_name}') from e
+            raise ValueError(f'Valores inválidos: symbol_id={symbol_id}, symbol_name={symbol_name}') from e
         
-        else:
-            for symbol in cls.symbols:
-                if symbol.symbol_id == symbol_id or symbol.symbol_name == symbol_name:
-                    return symbol
-            new_instance = super().__new__(cls)
-            new_instance._symbol_id = symbol_id
-            new_instance._symbol_name = symbol_name
-            return new_instance
+        return cls._instance
     
-    def __init__(self, symbol_id, symbol_name):
-        if self not in ContractSymbol.symbols:
-            ContractSymbol.symbols.append(self)
+    def __init__(self, *, symbol_id, symbol_name):
+        pass
+    
+    @classmethod
+    def get_items(cls):
+        """Returns a list of all concatenated symbols, sorted by symbol_name."""
+        def get_key(item):
+            _, symbol_name = item
+            return symbol_name
+        return [f"{symbol_id}:{symbol_name}" for symbol_id, symbol_name in sorted(cls._symbols, key=get_key)]
+    
+    @classmethod
+    def get_name_by_id(cls, symbol_id):
+        """Returns a list of concatenated symbols for the specified symbol_id, sorted by symbol_name."""
+        if not isinstance(symbol_id, str):
+            raise ValueError(f'symbol_id deve ser string, recebido: {symbol_id}')
+        
+        def get_key(item):
+            _, symbol_name = item
+            return symbol_name
+        filtered_items = [(sid, sname) for sid, sname in cls._symbols if sid == symbol_id]
+        return [f"{sname}" for _,sname in sorted(filtered_items, key=get_key)]
+    
+    @classmethod
+    def get_id_by_name(cls, symbol_name):
+        """Returns a list of concatenated symbols for the specified symbol_name, sorted by symbol_id."""
+        if not isinstance(symbol_name, str):
+            raise ValueError(f'symbol_name deve ser string, recebido: {symbol_name}')
+        
+        def get_key(item):
+            symbol_id, _ = item
+            return symbol_id
+        filtered_items = [(sid, sname) for sid, sname in cls._symbols if sname == symbol_name]
+        return [f"{sid}" for sid,_ in sorted(filtered_items, key=get_key)]
     
     @classmethod
     def get_ids(cls):
-        return [symbol.symbol_id for symbol in cls.symbols]
+        """Returns a list of all symbol_ids, sorted alphabetically."""
+        return sorted([symbol_id for symbol_id, _ in cls._symbols])
     
     @classmethod
     def get_names(cls):
-        return [symbol.symbol_name for symbol in cls.symbols]
-    
-    @classmethod
-    def get_symbol_by_name(cls, symbol_name):
-        for symbol in cls.symbols:
-            if symbol.symbol_name == symbol_name:
-                return symbol
-        return False
-    
-    @classmethod
-    def get_symbol_by_id(cls, symbol_id):
-        for symbol in cls.symbols:
-            if symbol.symbol_id == symbol_id:
-                return symbol
-        return False
-    
-    @classmethod
-    def get_all_instances(cls):
-        return sorted(cls.symbols, key=lambda x: x.symbol_name)
-    
-    @property
-    def symbol_id(self):
-        return self._symbol_id
-    
-    @property
-    def symbol_name(self):
-        return self._symbol_name
-        
-    def __str__(self):
-        return f'{self._symbol_id}:{self.symbol_name}'
-    
-    def __eq__(self, value):
-        if not isinstance(value, ContractSymbol):
-            raise ValueError('Comparação inválida, deve ser com ContractSymbol.')
-        return self.symbol_id == value.symbol_id and self.symbol_name == value.symbol_name
+        """Returns a list of all symbol_names, sorted alphabetically."""
+        return sorted([symbol_name for _, symbol_name in cls._symbols])
 
-class ContractType:
-    contracts = []
+class Modality:
+    _modalities = []
+    _instance = None
     
-    def __new__(cls, contract_type, contract_name):
-        if not contract_type or not contract_name:
-            raise ValueError('contract_type e contract_name não podem ser vazios.')
+    def __new__(cls, *, modality_group, modality_name):
+        if cls._instance is None:
+            cls._instance = super().__new__(cls)
+        
+        if not modality_group or not modality_name:
+            raise ValueError('modality_group e modality_name devem ser fornecidos.')
         
         try:
-            if not isinstance(contract_type, str) or not isinstance(contract_name, str):
-                raise ValueError(f'contract_type e contract_name devem ser strings, recebido: {contract_type}, {contract_name}')
+            if not isinstance(modality_group, str) or not isinstance(modality_name, str):
+                raise ValueError(f'modality_group e modality_name devem ser strings, recebido: {modality_group}, {modality_name}')
             
-            for contract in cls.contracts:
-                if contract.contract_name == contract_name and contract.contract_type != contract_type:
-                    raise ValueError(f'Contract name {contract_name} já existe em {contract.contract_type}.')
+            modality_tuple = (modality_group, modality_name)
+            if modality_tuple not in cls._modalities:
+                cls._modalities.append(modality_tuple)
         
         except ValueError as e:
-            raise ValueError(f'Valores inválidos para contract_type ou contract_name: {contract_type}, {contract_name}') from e
+            raise ValueError(f'Valores inválidos: modality_group={modality_group}, modality_name={modality_name}') from e
         
-        else:
-            for contract in cls.contracts:
-                if contract.contract_type == contract_type and contract.contract_name == contract_name:
-                    return contract
-            new_instance = super().__new__(cls)
-            new_instance._contract_type = contract_type
-            new_instance._contract_name = contract_name
-            return new_instance
+        return cls._instance
     
-    def __init__(self, contract_type, contract_name):
-        if self not in ContractType.contracts:
-            ContractType.contracts.append(self)
+    def __init__(self, *, modality_group, modality_name):
+        pass
     
     @classmethod
-    def get_types(cls):
-        return list({contract.contract_type for contract in cls.contracts})
+    def get_items(cls):
+        """Returns a list of all concatenated modalities, sorted by modality_name."""
+        def get_key(item):
+            _, modality_name = item
+            return modality_name
+        return [f"{modality_group}:{modality_name}" for modality_group, modality_name in sorted(cls._modalities, key=get_key)]
+    
+    @classmethod
+    def get_names_by_group(cls, modality_group):
+        """Returns a list of concatenated modalities for the specified modality_group, sorted by modality_name."""
+        if not isinstance(modality_group, str):
+            raise ValueError(f'modality_group deve ser string, recebido: {modality_group}')
+        
+        def get_key(item):
+            _, modality_name = item
+            return modality_name
+        filtered_items = [(mg, mn) for mg, mn in cls._modalities if mg == modality_group]
+        return [f"{mn}" for _, mn in sorted(filtered_items, key=get_key)]
+    
+    @classmethod
+    def get_group_by_name(cls, modality_name):
+        """Returns a list of concatenated modalities for the specified modality_name, sorted by modality_group."""
+        if not isinstance(modality_name, str):
+            raise ValueError(f'modality_name deve ser string, recebido: {modality_name}')
+        
+        def get_key(item):
+            modality_group, _ = item
+            return modality_group
+        filtered_items = [(mg, mn) for mg, mn in cls._modalities if mn == modality_name]
+        return [f"{mg}" for mg, _ in sorted(filtered_items, key=get_key)]
+    
+    @classmethod
+    def get_groups(cls):
+        """Returns a list of all modality_groups, sorted alphabetically."""
+        return sorted([modality_group for modality_group, _ in cls._modalities])
     
     @classmethod
     def get_names(cls):
-        return [contract.contract_name for contract in cls.contracts]
-    
-    @classmethod
-    def get_type_by_name(cls, contract_name):
-        for contract in cls.contracts:
-            if contract.contract_name == contract_name:
-                return contract.contract_type
-        return False
-    
-    @classmethod
-    def get_contract_by_name(cls, contract_name):
-        for contract in cls.contracts:
-            if contract.contract_name == contract_name:
-                return contract
-        return False
-    
-    @classmethod
-    def get_contracts_same_type_by_name(cls, contract_name):
-        contract_type = cls.get_type_by_name(contract_name)
-        if not contract_type:
-            return False
-        return [contract for contract in cls.contracts if contract.contract_type == contract_type]
-    
-    @classmethod
-    def get_contracts_by_type(cls, contract_type):
-        contracts = [contract for contract in cls.contracts if contract.contract_type == contract_type]
-        return contracts if contracts else False
-    
-    @classmethod
-    def get_all_instances(cls):
-        return sorted(cls.contracts, key=lambda x: f"{x.contract_type}:{x.contract_name}")
-    
-    @property
-    def contract_type(self):
-        return self._contract_type
-    
-    @property
-    def contract_name(self):
-        return self._contract_name
-        
-    def __str__(self):
-        return f'{self._contract_type}:{self.contract_name}'
-    
-    def __eq__(self, value):
-        if not isinstance(value, ContractType):
-            raise ValueError('Comparação inválida, deve ser com ContractType.')
-        return self.contract_type == value.contract_type and self.contract_name == value.contract_name
+        """Returns a list of all modality_names, sorted alphabetically."""
+        return sorted([modality_name for _, modality_name in cls._modalities])
 
-class ContractTrade:
-    trades = []
+class Duration:
+    _duration_suffixes = {'ticks': ('t', 'o'), 'seconds': ('s', 'p'), 'minutes': ('m', 'q'), 'hours': ('h', 'r'), 'days': ('d', 's')}
+    _durations = []
+    _instance = None
     
-    def __new__(cls, symbol, contract, min_time, max_time):
-        if not all([symbol, contract]):
-            raise ValueError('symbol e contract devem ser fornecidos.')
+    def __new__(cls, *, duration, duration_unit):
+        if cls._instance is None:
+            cls._instance = super().__new__(cls)
+        
+        if not (duration and duration_unit):
+            raise ValueError('Duração e unidade devem ser fornecidas.')
         
         try:
-            if not (isinstance(symbol, ContractSymbol) and isinstance(contract, ContractType)):
-                raise ValueError('symbol deve ser ContractSymbol e contract deve ser ContractType.')
-            if min_time is not None and not isinstance(min_time, DurationContract):
-                raise ValueError('min_time deve ser DurationContract ou None.')
-            if max_time is not None and not isinstance(max_time, DurationContract):
-                raise ValueError('max_time deve ser DurationContract ou None.')
+            if not (isinstance(duration, str) and isinstance(duration_unit, str)):
+                raise ValueError(f'Duração e unidade devem ser strings, recebido: {duration}, {duration_unit}')
+            
+            suffixes = [sfx[0] for sfx in cls._duration_suffixes.values()]
+            if duration_unit not in suffixes:
+                raise ValueError(f'Unidade inválida: {duration_unit}. Deve ser um dos sufixos {suffixes}.')
+            
+            value = int(duration)
+            if value <= 0:
+                raise ValueError(f'Duração deve ser positiva, recebido: {duration}')
+            
+            duration_tuple = (duration, duration_unit)
+            if duration_tuple not in cls._durations:
+                cls._durations.append(duration_tuple)
         
         except ValueError as e:
-            raise ValueError(f'Valores inválidos para negociação: {symbol}, {contract}, {min_time}, {max_time}') from e
+            raise ValueError(f'Formato inválido: duration={duration}, duration_unit={duration_unit}.') from e
         
-        else:
-            for trade in cls.trades:
-                if (trade.symbol == symbol and 
-                    trade.contract == contract and 
-                    trade._min_time is min_time and 
-                    trade._max_time is max_time):
-                    return trade
-            new_instance = super().__new__(cls)
-            new_instance._symbol = symbol
-            new_instance._contract = contract
-            new_instance._min_time = min_time
-            new_instance._max_time = max_time
-            return new_instance
+        return cls._instance
     
-    def __init__(self, symbol, contract, min_time, max_time):
-        if self not in ContractTrade.trades:
-            ContractTrade.trades.append(self)
-    
-    @property
-    def symbol(self):
-        return self._symbol
-    
-    @property
-    def contract(self):
-        return self._contract
-    
-    @property
-    def min_time(self):
-        if self._min_time is None:
-            return (None, None)
-        return (self._min_time.duration, self._min_time.duration_type)
-    
-    @property
-    def max_time(self):
-        if self._max_time is None:
-            return (None, None)
-        return (self._max_time.duration, self._max_time.duration_type)
+    def __init__(self, *, duration, duration_unit):
+        pass
     
     @classmethod
-    def get_trades_by_symbol_id(cls, symbol_id):
-        return [trade for trade in cls.trades if trade.symbol.symbol_id == symbol_id] or False
+    def get_items(cls):
+        """Returns a list of concatenated durations, sorted by _duration_suffixes weight."""
+        def get_key(item):
+            duration, unit = item
+            peso = cls._duration_suffixes[[k for k, v in cls._duration_suffixes.items() if v[0] == unit][0]][1]
+            return (peso, int(duration))
+        return [f"{duration}{unit}" for duration, unit in sorted(cls._durations, key=get_key)]
     
     @classmethod
-    def get_trades_by_symbol_name(cls, symbol_name):
-        return [trade for trade in cls.trades if trade.symbol.symbol_name == symbol_name] or False
-    
-    @classmethod
-    def get_trades_by_contract_type(cls, contract_type):
-        return [trade for trade in cls.trades if trade.contract.contract_type == contract_type] or False
-    
-    @classmethod
-    def get_trades_by_contract_name(cls, contract_name):
-        return [trade for trade in cls.trades if trade.contract.contract_name == contract_name] or False
-    
-    @classmethod
-    def get_all_instances(cls):
-        return sorted(cls.trades, key=lambda x: f"{x.symbol.symbol_name}:{x.contract.contract_type}")
-    
-    @classmethod
-    def get_unique_min_max_pairs(cls):
-        """Retorna uma lista de tuplas com os pares únicos de min_time e max_time."""
-        unique_pairs = set()
-        for trade in cls.trades:
-            min_str = f"{trade.min_time[0]}{trade.min_time[1]}" if trade.min_time[0] is not None else "None"
-            max_str = f"{trade.max_time[0]}{trade.max_time[1]}" if trade.max_time[0] is not None else "None"
-            unique_pairs.add((min_str, max_str))
-        return sorted(list(unique_pairs), key=lambda x: (x[0], x[1]))
-    
-    @classmethod
-    def get_by_duration_pair(cls, duration_pair):
-        """
-        Retorna uma lista de trades que possuem o par específico de min_time e max_time.
-        O parâmetro duration_pair deve estar no formato 'Min: Xt - Max: Yz', ex.: 'Min: 2t - Max: 5t'.
-        """
-        try:
-            min_part, max_part = duration_pair.split(' - ')
-            min_str = min_part.split(': ')[1].strip()
-            max_str = max_part.split(': ')[1].strip()
-        except (ValueError, IndexError):
-            raise ValueError("Formato inválido. Use 'Min: Xt - Max: Yz', ex.: 'Min: 2t - Max: 5t'")
+    def get_by_unit(cls, unit):
+        """Returns a list of concatenated durations for the specified duration_unit, sorted by value."""
+        suffixes = [sfx[0] for sfx in cls._duration_suffixes.values()]
+        if unit not in suffixes:
+            raise ValueError(f'Unidade inválida: {unit}. Deve ser um dos sufixos {suffixes}.')
+        
+        def get_key(item):
+            duration, _ = item
+            return int(duration)
+        filtered_items = [(duration, u) for duration, u in cls._durations if u == unit]
+        return [f"{duration}{u}" for duration, u in sorted(filtered_items, key=get_key)]
 
-        matching_trades = [
-            trade for trade in cls.trades
-            if (f"{trade.min_time[0]}{trade.min_time[1]}" if trade.min_time[0] is not None else "None") == min_str
-            and (f"{trade.max_time[0]}{trade.max_time[1]}" if trade.max_time[0] is not None else "None") == max_str
-        ]
-        return sorted(matching_trades, key=lambda x: f"{x.symbol.symbol_name}:{x.contract.contract_type}") or False
+async def main(testes_classes_individuais=True):
+    print('Iniciando conexão com o servidor DERIV:')
     
-    @classmethod
-    def get_unique_symbol_ids(cls):
-        """Retorna uma lista de symbol_id únicos presentes nos Trades."""
-        return sorted(list({trade.symbol.symbol_id for trade in cls.trades}))
-    
-    @classmethod
-    def get_unique_symbol_names(cls):
-        """Retorna uma lista de symbol_name únicos presentes nos Trades."""
-        return sorted(list({trade.symbol.symbol_name for trade in cls.trades}))
-    
-    @classmethod
-    def get_unique_contract_types(cls):
-        """Retorna uma lista de contract_type únicos presentes nos Trades."""
-        return sorted(list({trade.contract.contract_type for trade in cls.trades}))
-    
-    @classmethod
-    def get_unique_contract_names(cls):
-        """Retorna uma lista de contract_name únicos presentes nos Trades."""
-        return sorted(list({trade.contract.contract_name for trade in cls.trades}))
-    
-    @classmethod
-    def get_contract_types_with_barrier(cls):
-        """Retorna uma lista de contract_type que usam barreiras."""
-        barrier_types = {'endsinout', 'staysinout', 'touchnotouch', 'turbos'}
-        return sorted([contract_type for contract_type in cls.get_unique_contract_types() if contract_type in barrier_types])
-    
-    def __str__(self):
-        return f"  {self.symbol} - {self.contract} - Min: {self.min_time[0]}{self.min_time[1] or ''} - Max: {self.max_time[0]}{self.max_time[1] or ''}"
-    
-    def __eq__(self, value):
-        if not isinstance(value, ContractTrade):
-            raise ValueError('Comparação inválida, deve ser com ContractTrade.')
-        return (self.symbol == value.symbol and 
-                self.contract == value.contract and 
-                self._min_time == value._min_time and 
-                self._max_time == value._max_time)
-
-async def populate_contract_data(manager):
+    dsb = AppDashboard.get_key_names()
+    app_name = dsb.get('app')[0]
+    token = dsb.get('token')[0]
+    conn = ConnManager(app_name, token)
     req = Request()
-    assets_response = await manager.send_request(req.asset_index)
-    if not assets_response or 'asset_index' not in assets_response:
-        print("Nenhum dado de ativo retornado pela API.")
-        return
     
-    assets = assets_response['asset_index']
-    for asset in assets:
-        symbol_id, symbol_name, contracts = asset
-        symbol = ContractSymbol(symbol_id, symbol_name)
-        for contract_data in contracts:
-            contract_type, contract_name, min_time, max_time = contract_data
-            contract = ContractType(contract_type, contract_name)
-            min_time_obj = DurationContract(min_time) if min_time else None
-            max_time_obj = DurationContract(max_time) if max_time else None
-            ContractTrade(symbol, contract, min_time_obj, max_time_obj)
+    await conn.connect()
+    print()
+    print(f'Mensagem ao servidor: {req.asset_index}')
+    response = await conn.send_request(req.asset_index)
+    print('Resposta do servidor:')
+    pp(response)
+    assets = response['asset_index']
+    
+    if response and testes_classes_individuais:
+        print('*'*100)
+        print('Class Symbol:')
+        print()
+        for asset in assets:
+            asset_id = asset[0]
+            asset_name = asset[1]
+            Symbol(symbol_id=asset_id, symbol_name=asset_name)
+        
+        print('Symbol.get_items():')
+        pp(Symbol.get_items())
+        print()
+        print('Symbol.get_name_by_id("frxEURUSD"):')
+        pp(Symbol.get_name_by_id('frxEURUSD'))
+        print()
+        print('Symbol.get_id_by_name("EUR/USD"):')
+        pp(Symbol.get_id_by_name('EUR/USD'))
+        print()
+        print('Symbol.get_ids():')
+        pp(Symbol.get_ids())
+        print()
+        print('Symbol.get_names():')
+        pp(Symbol.get_names())
+        print('*'*100)
+        
+        print('*'*100)
+        print('Class Modality:')
+        print()
+        for asset in assets:
+            asset_id = asset[0]
+            asset_name = asset[1]
+            modalities = asset[2]
+            
+            for modality in modalities:
+                modality_group = modality[0]
+                modality_name = modality[1]
+                Modality(modality_group=modality_group, modality_name=modality_name)
+                
+        print('Modality.get_items():')
+        pp(Modality.get_items())
+        print()
+        print('Modality.get_names_by_group("callput"):')
+        pp(Modality.get_names_by_group('callput'))
+        print()
+        print('Modality.get_group_by_name("Rise/Fall"):')
+        pp(Modality.get_group_by_name('Rise/Fall'))
+        print()
+        print('Modality.get_groups():')
+        pp(Modality.get_groups())
+        print()
+        print('Modality.get_names():')
+        pp(Modality.get_names())
+        print('*'*100)
+        
+        print('*'*100)
+        print('Class Duration:')
+        print()
+        for asset in assets:
+            asset_id = asset[0]
+            asset_name = asset[1]
+            modalities = asset[2]
+            
+            for modality in modalities:
+                modality_group = modality[0]
+                modality_name = modality[1]
+                modality_min_duration = modality[2]
+                modality_max_duration = modality[3]
+                
+                if modality_min_duration:
+                    Duration(duration=modality_min_duration[:-1], duration_unit=modality_min_duration[-1])
+                
+                if modality_max_duration:
+                    Duration(duration=modality_max_duration[:-1], duration_unit=modality_max_duration[-1])
+        
+        print('Duration.get_items():')
+        pp(Duration.get_items())
+        print()
+        print('Duration.get_by_unit("t"):')
+        pp(Duration.get_by_unit('t'))
+        print('*'*100)
 
 if __name__ == "__main__":
-    async def test_contract():
-        manager = ConnManager("app_demo", "token_demo")
-        await manager.connect()
-        await populate_contract_data(manager)
-        print('-'*150)
-        print("Negociações em cache:")
-        for trade in ContractTrade.get_all_instances():
-            print(trade)
-
-        print('-'*150)
-        print("\nTeste: get_trades_by_symbol_id('frxEURUSD'):")
-        for trade in ContractTrade.get_trades_by_symbol_id("frxEURUSD") or []:
-            print(trade)
-
-        print('-'*150)
-        print("\nTeste: get_trades_by_symbol_name('EUR/USD'):")
-        for trade in ContractTrade.get_trades_by_symbol_name("EUR/USD") or []:
-            print(trade)
-        
-        print('-'*150)
-        print("\nTeste: get_trades_by_contract_type('callput'):")
-        for trade in ContractTrade.get_trades_by_contract_type("callput") or []:
-            print(trade)
-        
-        print('-'*150)
-        print("\nTeste: get_trades_by_contract_name('Rise/Fall'):")
-        for trade in ContractTrade.get_trades_by_contract_name("Rise/Fall") or []:
-            print(trade)
-
-        print('-'*150)
-        print("\nTeste: get_unique_min_max_pairs():")
-        for min_time, max_time in ContractTrade.get_unique_min_max_pairs():
-            print(f"  Min: {min_time} - Max: {max_time}")
-
-        print('-'*150)
-        print("\nTeste: get_by_duration_pair('Min: 2t - Max: 5t'):")
-        for trade in ContractTrade.get_by_duration_pair("Min: 2t - Max: 5t") or []:
-            print(trade)
-
-        print('-'*150)
-        print("\nTeste: get_unique_symbol_ids():")
-        for symbol_id in ContractTrade.get_unique_symbol_ids():
-            print(f"  {symbol_id}")
-
-        print('-'*150)
-        print("\nTeste: get_unique_symbol_names():")
-        for symbol_name in ContractTrade.get_unique_symbol_names():
-            print(f"  {symbol_name}")
-
-        print('-'*150)
-        print("\nTeste: get_unique_contract_types():")
-        for contract_type in ContractTrade.get_unique_contract_types():
-            print(f"  {contract_type}")
-
-        print('-'*150)
-        print("\nTeste: get_unique_contract_names():")
-        for contract_name in ContractTrade.get_unique_contract_names():
-            print(f"  {contract_name}")
-
-        print('-'*150)
-        print("\nTeste: get_contract_types_with_barrier():")
-        for contract_type in ContractTrade.get_contract_types_with_barrier():
-            print(f"  {contract_type}")
-
-        await manager.disconnect()
-
-    asyncio.run(test_contract())
+    asyncio.run(main())
