@@ -3,201 +3,169 @@ from pprint import pprint as pp
 from connection import ConnManager, AppDashboard
 from request import Request
 
-class Symbol:
-    _symbols = []
-    _instance = None
-    
-    def __new__(cls, *, symbol_id, symbol_name):
-        if cls._instance is None:
-            cls._instance = super().__new__(cls)
+class Asset:
+    _instances = []
+    _duration_suffixes = {'ticks': 't', 'seconds': 's', 'minutes': 'm', 'hours': 'h', 'days': 'd'}
+
+    def __init__(self, *, symbol_id, symbol_name, modality_group, modality_name, duration_min=None, duration_min_unit=None, duration_max=None, duration_max_unit=None):
+        if not (symbol_id and symbol_name and modality_group and modality_name and isinstance(symbol_id, str) and isinstance(symbol_name, str) and isinstance(modality_group, str) and isinstance(modality_name, str)):
+            raise ValueError('symbol_id, symbol_name, modality_group e modality_name devem ser strings não vazias.')
         
-        if not symbol_id or not symbol_name:
-            raise ValueError('symbol_id e symbol_name devem ser fornecidos.')
+        if (duration_min and not duration_min_unit) or (not duration_min and duration_min_unit):
+            raise ValueError('duration_min e duration_min_unit devem ser fornecidos juntos ou ambos omitidos.')
+        
+        if (duration_max and not duration_max_unit) or (not duration_max and duration_max_unit):
+            raise ValueError('duration_max e duration_max_unit devem ser fornecidos juntos ou ambos omitidos.')
         
         try:
-            if not isinstance(symbol_id, str) or not isinstance(symbol_name, str):
-                raise ValueError(f'symbol_id e symbol_name devem ser strings, recebido: {symbol_id}, {symbol_name}')
+            self._symbol_id = symbol_id
+            self._symbol_name = symbol_name
+            self._modality_group = modality_group
+            self._modality_name = modality_name
             
-            symbol_tuple = (symbol_id, symbol_name)
-            if symbol_tuple not in cls._symbols:
-                cls._symbols.append(symbol_tuple)
-        
-        except ValueError as e:
-            raise ValueError(f'Valores inválidos: symbol_id={symbol_id}, symbol_name={symbol_name}') from e
-        
-        return cls._instance
+            if duration_min and duration_min_unit:
+                if not isinstance(duration_min, str) or not isinstance(duration_min_unit, str):
+                    raise ValueError('duration_min e duration_min_unit devem ser strings.')
+                if duration_min_unit not in self._duration_suffixes.values():
+                    raise ValueError(f'duration_min_unit inválido: {duration_min_unit}. Deve ser um dos sufixos {list(self._duration_suffixes.values())}.')
+                value = int(duration_min)
+                if value <= 0:
+                    raise ValueError(f'duration_min deve ser positivo, recebido: {duration_min}')
+                self._duration_min = duration_min
+                self._duration_min_unit = duration_min_unit
+            else:
+                self._duration_min = None
+                self._duration_min_unit = None
+            
+            if duration_max and duration_max_unit:
+                if not isinstance(duration_max, str) or not isinstance(duration_max_unit, str):
+                    raise ValueError('duration_max e duration_max_unit devem ser strings.')
+                if duration_max_unit not in self._duration_suffixes.values():
+                    raise ValueError(f'duration_max_unit inválido: {duration_max_unit}. Deve ser um dos sufixos {list(self._duration_suffixes.values())}.')
+                value = int(duration_max)
+                if value <= 0:
+                    raise ValueError(f'duration_max deve ser positivo, recebido: {duration_max}')
+                self._duration_max = duration_max
+                self._duration_max_unit = duration_max_unit
+            else:
+                self._duration_max = None
+                self._duration_max_unit = None
     
-    def __init__(self, *, symbol_id, symbol_name):
-        pass
+        except ValueError as e:
+            raise ValueError(f'Erro ao criar Asset: {str(e)}') from e
+        
+        Asset._instances.append(self)
+    
+    def __str__(self):
+        sy_id = self.symbol_id
+        sy_nm = self.symbol_name
+        mod_gp = self.modality_group
+        mod_nm = self.modality_name 
+        drt_min = self.duration_min if self.duration_min else ''
+        drt_min_unt = self.duration_min_unit if self.duration_min_unit else ''
+        drt_max = self.duration_max if self.duration_max else ''
+        drt_max_unt = self.duration_max_unit if self.duration_max_unit else ''
+        return f'{sy_id}:{sy_nm}  {mod_gp}:{mod_nm}  min:{drt_min}{drt_min_unt} max:{drt_max}{drt_max_unt}'
+    
+    def __repr__(self):
+        return self.__str__()  # Faz pprint usar o mesmo formato de __str__
+    
+    @property
+    def symbol_id(self):
+        return self._symbol_id
+    
+    @property
+    def symbol_name(self):
+        return self._symbol_name
+    
+    @property
+    def modality_group(self):
+        return self._modality_group
+    
+    @property
+    def modality_name(self):
+        return self._modality_name
+    
+    @property
+    def duration_min(self):
+        return self._duration_min
+    
+    @property
+    def duration_min_unit(self):
+        return self._duration_min_unit
+    
+    @property
+    def duration_max(self):
+        return self._duration_max
+    
+    @property
+    def duration_max_unit(self):
+        return self._duration_max_unit
     
     @classmethod
     def get_items(cls):
-        """Returns a list of all concatenated symbols, sorted by symbol_name."""
-        def get_key(item):
-            _, symbol_name = item
-            return symbol_name
-        return [f"{symbol_id}:{symbol_name}" for symbol_id, symbol_name in sorted(cls._symbols, key=get_key)]
+        """Returns a list of all Asset instances."""
+        return [asset for asset in cls._instances]  # Já usa __repr__
     
     @classmethod
-    def get_name_by_id(cls, symbol_id):
-        """Returns a list of concatenated symbols for the specified symbol_id, sorted by symbol_name."""
+    def get_item_by_symbol_id(cls, symbol_id):
+        """Returns a list of formatted strings for all Asset instances with the specified symbol_id."""
         if not isinstance(symbol_id, str):
             raise ValueError(f'symbol_id deve ser string, recebido: {symbol_id}')
-        
-        def get_key(item):
-            _, symbol_name = item
-            return symbol_name
-        filtered_items = [(sid, sname) for sid, sname in cls._symbols if sid == symbol_id]
-        return [f"{sname}" for _,sname in sorted(filtered_items, key=get_key)]
+        return [str(asset) for asset in cls._instances if asset.symbol_id == symbol_id]
     
     @classmethod
-    def get_id_by_name(cls, symbol_name):
-        """Returns a list of concatenated symbols for the specified symbol_name, sorted by symbol_id."""
+    def get_symbols_ids(cls):
+        """Returns a list of unique symbol_ids, sorted alphabetically."""
+        return sorted({x.symbol_id for x in cls._instances})
+    
+    @classmethod
+    def get_symbols_names(cls):
+        """Returns a list of unique symbol_names, sorted alphabetically."""
+        return sorted({x.symbol_name for x in cls._instances})
+    
+    @classmethod
+    def get_symbols_ids_names(cls):
+        """Returns a list of unique 'symbol_id:symbol_name' strings, sorted alphabetically."""
+        return sorted({f'{x.symbol_id}:{x.symbol_name}' for x in cls._instances})
+    
+    @classmethod
+    def get_by_symbol_id(cls, symbol_id):
+        """Returns a list of Asset instances for the specified symbol_id."""
+        if not isinstance(symbol_id, str):
+            raise ValueError(f'symbol_id deve ser string, recebido: {symbol_id}')
+        return [asset for asset in cls._instances if asset.symbol_id == symbol_id]
+    
+    @classmethod
+    def get_by_symbol_name(cls, symbol_name):
+        """Returns a list of Asset instances for the specified symbol_name."""
         if not isinstance(symbol_name, str):
             raise ValueError(f'symbol_name deve ser string, recebido: {symbol_name}')
-        
-        def get_key(item):
-            symbol_id, _ = item
-            return symbol_id
-        filtered_items = [(sid, sname) for sid, sname in cls._symbols if sname == symbol_name]
-        return [f"{sid}" for sid,_ in sorted(filtered_items, key=get_key)]
+        return [asset for asset in cls._instances if asset.symbol_name == symbol_name]
     
     @classmethod
-    def get_ids(cls):
-        """Returns a list of all symbol_ids, sorted alphabetically."""
-        return sorted([symbol_id for symbol_id, _ in cls._symbols])
-    
-    @classmethod
-    def get_names(cls):
-        """Returns a list of all symbol_names, sorted alphabetically."""
-        return sorted([symbol_name for _, symbol_name in cls._symbols])
-
-class Modality:
-    _modalities = []
-    _instance = None
-    
-    def __new__(cls, *, modality_group, modality_name):
-        if cls._instance is None:
-            cls._instance = super().__new__(cls)
-        
-        if not modality_group or not modality_name:
-            raise ValueError('modality_group e modality_name devem ser fornecidos.')
-        
-        try:
-            if not isinstance(modality_group, str) or not isinstance(modality_name, str):
-                raise ValueError(f'modality_group e modality_name devem ser strings, recebido: {modality_group}, {modality_name}')
-            
-            modality_tuple = (modality_group, modality_name)
-            if modality_tuple not in cls._modalities:
-                cls._modalities.append(modality_tuple)
-        
-        except ValueError as e:
-            raise ValueError(f'Valores inválidos: modality_group={modality_group}, modality_name={modality_name}') from e
-        
-        return cls._instance
-    
-    def __init__(self, *, modality_group, modality_name):
-        pass
-    
-    @classmethod
-    def get_items(cls):
-        """Returns a list of all concatenated modalities, sorted by modality_name."""
-        def get_key(item):
-            _, modality_name = item
-            return modality_name
-        return [f"{modality_group}:{modality_name}" for modality_group, modality_name in sorted(cls._modalities, key=get_key)]
-    
-    @classmethod
-    def get_names_by_group(cls, modality_group):
-        """Returns a list of concatenated modalities for the specified modality_group, sorted by modality_name."""
+    def get_by_modality_group(cls, modality_group):
+        """Returns a list of Asset instances for the specified modality_group."""
         if not isinstance(modality_group, str):
             raise ValueError(f'modality_group deve ser string, recebido: {modality_group}')
-        
-        def get_key(item):
-            _, modality_name = item
-            return modality_name
-        filtered_items = [(mg, mn) for mg, mn in cls._modalities if mg == modality_group]
-        return [f"{mn}" for _, mn in sorted(filtered_items, key=get_key)]
+        return [asset for asset in cls._instances if asset.modality_group == modality_group]
     
     @classmethod
-    def get_group_by_name(cls, modality_name):
-        """Returns a list of concatenated modalities for the specified modality_name, sorted by modality_group."""
+    def get_by_modality_name(cls, modality_name):
+        """Returns a list of Asset instances for the specified modality_name."""
         if not isinstance(modality_name, str):
             raise ValueError(f'modality_name deve ser string, recebido: {modality_name}')
-        
-        def get_key(item):
-            modality_group, _ = item
-            return modality_group
-        filtered_items = [(mg, mn) for mg, mn in cls._modalities if mn == modality_name]
-        return [f"{mg}" for mg, _ in sorted(filtered_items, key=get_key)]
+        return [asset for asset in cls._instances if asset.modality_name == modality_name]
     
     @classmethod
     def get_groups(cls):
         """Returns a list of all modality_groups, sorted alphabetically."""
-        return sorted([modality_group for modality_group, _ in cls._modalities])
+        return sorted({asset.modality_group for asset in cls._instances})
     
     @classmethod
-    def get_names(cls):
+    def get_modality_names(cls):
         """Returns a list of all modality_names, sorted alphabetically."""
-        return sorted([modality_name for _, modality_name in cls._modalities])
-
-class Duration:
-    _duration_suffixes = {'ticks': ('t', 'o'), 'seconds': ('s', 'p'), 'minutes': ('m', 'q'), 'hours': ('h', 'r'), 'days': ('d', 's')}
-    _durations = []
-    _instance = None
-    
-    def __new__(cls, *, duration, duration_unit):
-        if cls._instance is None:
-            cls._instance = super().__new__(cls)
-        
-        if not (duration and duration_unit):
-            raise ValueError('Duração e unidade devem ser fornecidas.')
-        
-        try:
-            if not (isinstance(duration, str) and isinstance(duration_unit, str)):
-                raise ValueError(f'Duração e unidade devem ser strings, recebido: {duration}, {duration_unit}')
-            
-            suffixes = [sfx[0] for sfx in cls._duration_suffixes.values()]
-            if duration_unit not in suffixes:
-                raise ValueError(f'Unidade inválida: {duration_unit}. Deve ser um dos sufixos {suffixes}.')
-            
-            value = int(duration)
-            if value <= 0:
-                raise ValueError(f'Duração deve ser positiva, recebido: {duration}')
-            
-            duration_tuple = (duration, duration_unit)
-            if duration_tuple not in cls._durations:
-                cls._durations.append(duration_tuple)
-        
-        except ValueError as e:
-            raise ValueError(f'Formato inválido: duration={duration}, duration_unit={duration_unit}.') from e
-        
-        return cls._instance
-    
-    def __init__(self, *, duration, duration_unit):
-        pass
-    
-    @classmethod
-    def get_items(cls):
-        """Returns a list of concatenated durations, sorted by _duration_suffixes weight."""
-        def get_key(item):
-            duration, unit = item
-            peso = cls._duration_suffixes[[k for k, v in cls._duration_suffixes.items() if v[0] == unit][0]][1]
-            return (peso, int(duration))
-        return [f"{duration}{unit}" for duration, unit in sorted(cls._durations, key=get_key)]
-    
-    @classmethod
-    def get_by_unit(cls, unit):
-        """Returns a list of concatenated durations for the specified duration_unit, sorted by value."""
-        suffixes = [sfx[0] for sfx in cls._duration_suffixes.values()]
-        if unit not in suffixes:
-            raise ValueError(f'Unidade inválida: {unit}. Deve ser um dos sufixos {suffixes}.')
-        
-        def get_key(item):
-            duration, _ = item
-            return int(duration)
-        filtered_items = [(duration, u) for duration, u in cls._durations if u == unit]
-        return [f"{duration}{u}" for duration, u in sorted(filtered_items, key=get_key)]
+        return sorted({asset.modality_name for asset in cls._instances})
 
 async def main(testes_classes_individuais=True):
     print('Iniciando conexão com o servidor DERIV:')
@@ -216,86 +184,76 @@ async def main(testes_classes_individuais=True):
     pp(response)
     assets = response['asset_index']
     
-    if response and testes_classes_individuais:
-        print('*'*100)
-        print('Class Symbol:')
-        print()
-        for asset in assets:
-            asset_id = asset[0]
-            asset_name = asset[1]
-            Symbol(symbol_id=asset_id, symbol_name=asset_name)
-        
-        print('Symbol.get_items():')
-        pp(Symbol.get_items())
-        print()
-        print('Symbol.get_name_by_id("frxEURUSD"):')
-        pp(Symbol.get_name_by_id('frxEURUSD'))
-        print()
-        print('Symbol.get_id_by_name("EUR/USD"):')
-        pp(Symbol.get_id_by_name('EUR/USD'))
-        print()
-        print('Symbol.get_ids():')
-        pp(Symbol.get_ids())
-        print()
-        print('Symbol.get_names():')
-        pp(Symbol.get_names())
-        print('*'*100)
-        
-        print('*'*100)
-        print('Class Modality:')
-        print()
+    if response:
+        # Popula Asset com os dados do asset_index
         for asset in assets:
             asset_id = asset[0]
             asset_name = asset[1]
             modalities = asset[2]
-            
             for modality in modalities:
                 modality_group = modality[0]
                 modality_name = modality[1]
-                Modality(modality_group=modality_group, modality_name=modality_name)
+                duration_min = modality[2]
+                duration_max = modality[3]
+                duration_min_value = duration_min[:-1] if duration_min else None
+                duration_min_unit = duration_min[-1] if duration_min else None
+                duration_max_value = duration_max[:-1] if duration_max else None
+                duration_max_unit = duration_max[-1] if duration_max else None
+                Asset(
+                    symbol_id=asset_id,
+                    symbol_name=asset_name,
+                    modality_group=modality_group,
+                    modality_name=modality_name,
+                    duration_min=duration_min_value,
+                    duration_min_unit=duration_min_unit,
+                    duration_max=duration_max_value,
+                    duration_max_unit=duration_max_unit
+                )
                 
-        print('Modality.get_items():')
-        pp(Modality.get_items())
-        print()
-        print('Modality.get_names_by_group("callput"):')
-        pp(Modality.get_names_by_group('callput'))
-        print()
-        print('Modality.get_group_by_name("Rise/Fall"):')
-        pp(Modality.get_group_by_name('Rise/Fall'))
-        print()
-        print('Modality.get_groups():')
-        pp(Modality.get_groups())
-        print()
-        print('Modality.get_names():')
-        pp(Modality.get_names())
-        print('*'*100)
+        print('Asset.get_items() (first 5):')
+        pp(Asset.get_items()[:5])  # Usa __repr__ automaticamente com pprint
+        print('*'*80)
         
-        print('*'*100)
-        print('Class Duration:')
-        print()
-        for asset in assets:
-            asset_id = asset[0]
-            asset_name = asset[1]
-            modalities = asset[2]
-            
-            for modality in modalities:
-                modality_group = modality[0]
-                modality_name = modality[1]
-                modality_min_duration = modality[2]
-                modality_max_duration = modality[3]
-                
-                if modality_min_duration:
-                    Duration(duration=modality_min_duration[:-1], duration_unit=modality_min_duration[-1])
-                
-                if modality_max_duration:
-                    Duration(duration=modality_max_duration[:-1], duration_unit=modality_max_duration[-1])
+        print('Asset.get_item_by_symbol_id("frxAUDCHF"):')
+        pp(Asset.get_item_by_symbol_id('frxAUDCHF'))  # Retorna lista de strings
+        print('*'*80)
         
-        print('Duration.get_items():')
-        pp(Duration.get_items())
-        print()
-        print('Duration.get_by_unit("t"):')
-        pp(Duration.get_by_unit('t'))
-        print('*'*100)
+        print('Asset.get_symbols_ids():')
+        pp(Asset.get_symbols_ids())
+        print('*'*80)
+        
+        print('Asset.get_symbols_names():')
+        pp(Asset.get_symbols_names())
+        print('*'*80)
+        
+        print('Asset.get_symbols_ids_names():')
+        pp(Asset.get_symbols_ids_names())
+        print('*'*80)
+        
+        # Testes adicionais para outros métodos
+        print('Asset.get_by_symbol_id("frxEURUSD") (first 5):')
+        pp(Asset.get_by_symbol_id('frxEURUSD')[:5])
+        print('*'*80)
+        
+        print('Asset.get_by_symbol_name("EUR/USD") (first 5):')
+        pp(Asset.get_by_symbol_name('EUR/USD')[:5])
+        print('*'*80)
+        
+        print('Asset.get_by_modality_group("callput") (first 5):')
+        pp(Asset.get_by_modality_group('callput')[:5])
+        print('*'*80)
+        
+        print('Asset.get_by_modality_name("Rise/Fall") (first 5):')
+        pp(Asset.get_by_modality_name('Rise/Fall')[:5])
+        print('*'*80)
+        
+        print('Asset.get_groups():')
+        pp(Asset.get_groups())
+        print('*'*80)
+        
+        print('Asset.get_modality_names():')
+        pp(Asset.get_modality_names())
+        print('*'*80)
 
 if __name__ == "__main__":
     asyncio.run(main())
