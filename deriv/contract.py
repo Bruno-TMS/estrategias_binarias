@@ -10,44 +10,44 @@ class Asset:
 
     def __init__(self, *, symbol_id: str, symbol_name: str, modality_group: str, modality_name: str, duration_min: str = None, duration_min_unit: str = None, duration_max: str = None, duration_max_unit: str = None):
         if not (symbol_id and symbol_name and modality_group and modality_name and isinstance(symbol_id, str) and isinstance(symbol_name, str) and isinstance(modality_group, str) and isinstance(modality_name, str)):
-            raise ValueError('symbol_id, symbol_name, modality_group e modality_name devem ser strings não vazias.')
+            raise ValueError('symbol_id, symbol_name, modality_group, and modality_name must be non-empty strings.')
 
         if (duration_min and not duration_min_unit) or (not duration_min and duration_min_unit):
-            raise ValueError('duration_min e duration_min_unit devem ser fornecidos juntos ou ambos omitidos.')
+            raise ValueError('duration_min and duration_min_unit must be provided together or both omitted.')
 
         if (duration_max and not duration_max_unit) or (not duration_max and duration_max_unit):
-            raise ValueError('duration_max e duration_max_unit devem ser fornecidos juntos ou ambos omitidos.')
+            raise ValueError('duration_max and duration_max_unit must be provided together or both omitted.')
 
         if (duration_min) and (not isinstance(duration_min, str) or not isinstance(duration_min_unit, str)):
-            raise ValueError('duration_min e duration_min_unit devem ser do tipo string.')
+            raise ValueError('duration_min and duration_min_unit must be strings.')
 
         if (duration_max) and (not isinstance(duration_max, str) or not isinstance(duration_max_unit, str)):
-            raise ValueError('duration_max e duration_max_unit devem ser do tipo string.')
+            raise ValueError('duration_max and duration_max_unit must be strings.')
 
         if (duration_min) and (duration_min_unit not in self._duration_suffixes):
-            raise ValueError(f'duration_min_unit {duration_min_unit} não está entre {self._duration_suffixes}')
+            raise ValueError(f'duration_min_unit {duration_min_unit} is not in {self._duration_suffixes}')
 
         if (duration_max) and (duration_max_unit not in self._duration_suffixes):
-            raise ValueError(f'duration_max_unit {duration_max_unit} não está entre {self._duration_suffixes}')
+            raise ValueError(f'duration_max_unit {duration_max_unit} is not in {self._duration_suffixes}')
 
         try:
             if duration_min and int(duration_min) <= 0:
-                raise ValueError(f'duration_min deve ser positivo, recebido: {duration_min}')
+                raise ValueError(f'duration_min must be positive, received: {duration_min}')
             
             if duration_max and int(duration_max) <= 0:
-                raise ValueError(f'duration_max deve ser positivo, recebido: {duration_max}')
+                raise ValueError(f'duration_max must be positive, received: {duration_max}')
             
             self._symbol_id = symbol_id
             self._symbol_name = symbol_name
             self._modality_group = modality_group
             self._modality_name = modality_name
             self._duration_min = duration_min
-            self._duration_min_unit = duration_min_unit  # Corrigido
-            self._duration_max = duration_max  # Corrigido
+            self._duration_min_unit = duration_min_unit
+            self._duration_max = duration_max
             self._duration_max_unit = duration_max_unit
 
         except ValueError as e:
-            raise ValueError(f'Erro ao criar Asset: {str(e)}') from e
+            raise ValueError(f'Error creating Asset: {str(e)}') from e
 
         else:
             Asset._instances.append(self)
@@ -96,7 +96,7 @@ class Asset:
     
     @classmethod
     def get_items_by_symbol_name(cls, symbol_name: str):
-        """Returns a list of Asset instances where symbol_name matches the pattern (case-sensitive)."""
+        """Returns a list of Asset instances where symbol_name matches the pattern."""
         pattern = re.compile(symbol_name)
         return [instance for instance in cls._instances if pattern.search(instance.symbol_name)]
 
@@ -114,9 +114,9 @@ class Asset:
 
     @classmethod
     def get_items_by_duration(cls, *, duration: str, duration_unit: str, fit_in_units: bool = True):
-        """Returns a list of Asset instances where the duration fits within min and max, optionally matching the unit."""
+        """Returns a list of Asset instances where the duration fits within min and max."""
         if duration_unit not in cls._duration_suffixes:
-            raise ValueError(f'Valor de duration_unit:{duration_unit} não pertence a lista:{cls._duration_suffixes}.')
+            raise ValueError(f'duration_unit value {duration_unit} is not in {self._duration_suffixes}.')
         
         try:
             param_duration = int(duration)
@@ -124,56 +124,60 @@ class Asset:
             result = []
             
             for instance in cls._instances:
-                if instance.duration_min and instance.duration_max:  # Só compara se ambos existem
+                if instance.duration_min and instance.duration_max:
                     min_duration = int(instance.duration_min)
                     max_duration = int(instance.duration_max)
                     min_index = cls._duration_suffixes.index(instance.duration_min_unit)
                     max_index = cls._duration_suffixes.index(instance.duration_max_unit)
                     
                     if fit_in_units:
-                        # Só considera itens com a mesma unidade e dentro do intervalo
                         if min_index == param_index == max_index and min_duration <= param_duration <= max_duration:
                             result.append(instance)
                     else:
-                        # Considera intervalo entre unidades diferentes, ajustando a ordem
-                        if (min_index < param_index < max_index) or \
-                           (min_index == param_index and min_duration <= param_duration) or \
-                           (max_index == param_index and param_duration <= max_duration):
+                        if ((min_index < param_index < max_index) 
+                            or (min_index == param_index and min_duration <= param_duration) 
+                            or (max_index == param_index and param_duration <= max_duration)):
                             result.append(instance)
             
             return result
             
         except ValueError as e:
-            raise ValueError(f'Valor de duration:{duration} inválido.') from e
+            raise ValueError(f'Invalid duration value: {duration}') from e
 
     @staticmethod 
     def populate(response):
-        """Populates Asset instances from the response data."""
-        if response:
-            assets = response['asset_index']
-            for asset in assets:
-                asset_id = asset[0]
-                asset_name = asset[1]
-                modalities = asset[2]
-                for modality in modalities:
-                    modality_group = modality[0]
-                    modality_name = modality[1]
-                    duration_min = modality[2]
-                    duration_max = modality[3]
-                    duration_min_value = duration_min[:-1] if duration_min else None
-                    duration_min_unit = duration_min[-1] if duration_min else None
-                    duration_max_value = duration_max[:-1] if duration_max else None
-                    duration_max_unit = duration_max[-1] if duration_max else None
-                    Asset(
-                        symbol_id=asset_id,
-                        symbol_name=asset_name,
-                        modality_group=modality_group,
-                        modality_name=modality_name,
-                        duration_min=duration_min_value,
-                        duration_min_unit=duration_min_unit,
-                        duration_max=duration_max_value,
-                        duration_max_unit=duration_max_unit
-                    )
+        """Populates Asset instances from the asset_index response, clearing previous data.
+        Returns True if populated successfully, False otherwise."""
+        Asset._instances.clear()  # Limpa os dados antigos
+        if not response:
+            return False
+        assets = response.get('asset_index', False)
+        if not assets:
+            return False
+        for asset in assets:
+            asset_id = asset[0]
+            asset_name = asset[1]
+            modalities = asset[2]
+            for modality in modalities:
+                modality_group = modality[0]
+                modality_name = modality[1]
+                duration_min = modality[2]
+                duration_max = modality[3]
+                duration_min_value = duration_min[:-1] if duration_min else None
+                duration_min_unit = duration_min[-1] if duration_min else None
+                duration_max_value = duration_max[:-1] if duration_max else None
+                duration_max_unit = duration_max[-1] if duration_max else None
+                Asset(
+                    symbol_id=asset_id,
+                    symbol_name=asset_name,
+                    modality_group=modality_group,
+                    modality_name=modality_name,
+                    duration_min=duration_min_value,
+                    duration_min_unit=duration_min_unit,
+                    duration_max=duration_max_value,
+                    duration_max_unit=duration_max_unit
+                )
+        return True
 
     def __str__(self):
         sy_id = self.symbol_id
@@ -189,10 +193,150 @@ class Asset:
     def __repr__(self):
         return self.__str__()
 
-async def main():
-    line = f'\n{100*"-"}\n'
+class ActiveSymbol:
+    _instances = []
 
-    print('Iniciando conexão com o servidor DERIV:')
+    def __init__(self, *, symbol: str, display_name: str, exchange_is_open: int, is_trading_suspended: int, market: str):
+        if not (symbol and display_name and market and isinstance(symbol, str) and isinstance(display_name, str) and isinstance(market, str)):
+            raise ValueError('symbol, display_name, and market must be non-empty strings.')
+        
+        self._symbol = symbol
+        self._display_name = display_name
+        self._exchange_is_open = exchange_is_open
+        self._is_trading_suspended = is_trading_suspended
+        self._market = market
+        
+        ActiveSymbol._instances.append(self)
+
+    @property
+    def symbol(self):
+        return self._symbol
+
+    @property
+    def display_name(self):
+        return self._display_name
+
+    @property
+    def exchange_is_open(self):
+        return self._exchange_is_open
+
+    @property
+    def is_trading_suspended(self):
+        return self._is_trading_suspended
+
+    @property
+    def market(self):
+        return self._market
+
+    @classmethod
+    def get_items(cls):
+        """Returns a list of all ActiveSymbol instances."""
+        return [instance for instance in cls._instances]
+
+    @classmethod
+    def get_items_by_symbol(cls, symbol: str):
+        """Returns a list of ActiveSymbol instances matching the exact symbol."""
+        return [instance for instance in cls._instances if instance.symbol == symbol]
+
+    @classmethod
+    def get_items_by_market(cls, market: str):
+        """Returns a list of ActiveSymbol instances matching the market (case-insensitive)."""
+        pattern = re.compile(market, flags=re.I)
+        return [instance for instance in cls._instances if pattern.search(instance.market)]
+
+    @classmethod
+    def get_items_tradeable(cls):
+        """Returns a list of ActiveSymbol instances that are tradeable (open and not suspended)."""
+        return [instance for instance in cls._instances if instance.exchange_is_open == 1 and instance.is_trading_suspended == 0]
+
+    @staticmethod
+    def populate(response):
+        """Populates ActiveSymbol instances from the active_symbols response, clearing previous data.
+        Returns True if populated successfully, False otherwise."""
+        ActiveSymbol._instances.clear()  # Limpa os dados antigos
+        if not response:
+            return False
+        symbols = response.get('active_symbols', False)
+        if not symbols:
+            return False
+        for symbol_data in symbols:
+            ActiveSymbol(
+                symbol=symbol_data['symbol'],
+                display_name=symbol_data['display_name'],
+                exchange_is_open=symbol_data['exchange_is_open'],
+                is_trading_suspended=symbol_data['is_trading_suspended'],
+                market=symbol_data['market']
+            )
+        return True
+
+    def __str__(self):
+        return f'{self.symbol}:{self.display_name}   Open:{self.exchange_is_open}   Suspended:{self.is_trading_suspended}   Market:{self.market}'
+
+    def __repr__(self):
+        return self.__str__()
+
+class SymbolManager:
+    _instance = None
+    _assets = []
+    _active_symbols = []
+
+    def __new__(cls):
+        """Implements Singleton pattern."""
+        if cls._instance is None:
+            cls._instance = super().__new__(cls)
+            cls._assets = Asset.get_items()  # Inicializa com dados existentes
+            cls._active_symbols = ActiveSymbol.get_items()  # Inicializa com dados existentes
+        return cls._instance
+
+    @classmethod
+    def populate_assets(cls, asset_response):
+        """Populates Asset instances with the latest server data."""
+        Asset.populate(asset_response)
+        cls._assets = Asset.get_items()  # Atualiza referência com os novos dados
+
+    @classmethod
+    def populate_active_symbols(cls, active_response):
+        """Populates ActiveSymbol instances with the latest server data."""
+        ActiveSymbol.populate(active_response)
+        cls._active_symbols = ActiveSymbol.get_items()  # Atualiza referência com os novos dados
+
+    @classmethod
+    def get_available_contracts(cls):
+        """Returns a list of (ActiveSymbol, Asset) tuples for tradeable contracts."""
+        tradeable_symbols = ActiveSymbol.get_items_tradeable()
+        available_contracts = []
+        for symbol in tradeable_symbols:
+            assets = Asset.get_items_by_symbol_id(symbol.symbol)
+            for asset in assets:
+                available_contracts.append((symbol, asset))
+        return available_contracts
+
+    @classmethod
+    def get_by_market(cls, market: str):
+        """Returns a list of (ActiveSymbol, Asset) tuples for a specific market."""
+        market_symbols = ActiveSymbol.get_items_by_market(market)
+        market_contracts = []
+        for symbol in market_symbols:
+            assets = Asset.get_items_by_symbol_id(symbol.symbol)
+            for asset in assets:
+                market_contracts.append((symbol, asset))
+        return market_contracts
+
+    @classmethod
+    def get_by_duration(cls, duration: str, duration_unit: str, fit_in_units: bool = True):
+        """Returns a list of (ActiveSymbol, Asset) tuples for a specific duration."""
+        duration_assets = Asset.get_items_by_duration(duration=duration, duration_unit=duration_unit, fit_in_units=fit_in_units)
+        duration_contracts = []
+        for asset in duration_assets:
+            symbols = ActiveSymbol.get_items_by_symbol(asset.symbol_id)
+            for symbol in symbols:
+                duration_contracts.append((symbol, asset))
+        return duration_contracts
+
+async def test_connection_and_requests():
+    """Tests connection and sends requests for asset_index and active_symbols."""
+    line = f'\n{100*"-"}\n'
+    print('Starting connection to DERIV server:')
     dsb = AppDashboard.get_key_names()
     app_name = dsb.get('app')[0]
     token = dsb.get('token')[0]
@@ -201,63 +345,161 @@ async def main():
     await conn.connect()
 
     print(line)
-    print(f'Mensagem ao servidor: {req.asset_index}')
-    response = await conn.send_request(req.asset_index)
-    await conn.disconnect()  # Corrigido com await
-
-    print('Resposta do servidor:')
-    pp(response)
-
-    Asset.populate(response)
+    print(f'Sending request to server for asset_index: {req.asset_index}')
+    asset_response = await conn.send_request(req.asset_index)
+    print('Server response (asset_index):')
+    pp(asset_response)
 
     print(line)
-    method_return = Asset.get_items()
-    print('Printing all @classmethod from class Asset:')
-    print()
-    print(f'@classmethod Asset.get_items(): total {len(method_return)}')
-    print()
-    pp(method_return[:5])
+    print(f'Sending request to server for active_symbols: {req.active_symbols}')
+    active_response = await conn.send_request(req.active_symbols)
+    print('Server response (active_symbols):')
+    pp(active_response)
+
+    return conn, asset_response, active_response
+
+async def test_assets(asset_response):
+    """Tests Asset class population and filtering."""
+    line = f'\n{100*"-"}\n'
+    success = Asset.populate(asset_response)
+    print(f"Asset population successful: {success}")
+
+    print(line)
+    print('All assets (Asset):')
+    assets = Asset.get_items()
+    print(f'Total: {len(assets)}')
+    pp(assets[:5])
     print('...')
-    pp(method_return[-5:])
+    
+    print(line)
+    print('Assets by symbol_id "frxAUDJPY" (Asset):')
+    audjpy_assets = Asset.get_items_by_symbol_id('frxAUDJPY')
+    print(f'Total: {len(audjpy_assets)}')
+    pp(audjpy_assets)
+
+async def test_active_symbols(active_response):
+    """Tests ActiveSymbol class population and filtering."""
+    line = f'\n{100*"-"}\n'
+    success = ActiveSymbol.populate(active_response)
+    print(f"ActiveSymbol population successful: {success}")
 
     print(line)
-    sys_id = 'frxAUDJPY'
-    method_return = Asset.get_items_by_symbol_id(sys_id)
-    print(f'@classmethod Asset.get_items_by_symbol_id({sys_id}): total {len(method_return)}')
-    print()
-    pp(method_return)
-
-    print(line)
-    sys_name = 'AUD'
-    method_return = Asset.get_items_by_symbol_name(sys_name)
-    print(f'@classmethod Asset.get_items_by_symbol_name({sys_name}): total {len(method_return)}')
-    print()
-    pp(method_return[:5])
-    print('...')
-
-    print(line)
-    modality_group = 'equal'
-    method_return = Asset.get_items_by_modality_group(modality_group)
-    print(f'@classmethod Asset.get_items_by_modality_group({modality_group}): total {len(method_return)}')
-    print()
-    pp(method_return[:5])
-    print('...')
-
-    print(line)
-    modality_name = 'higher'
-    method_return = Asset.get_items_by_modality_name(modality_name)
-    print(f'@classmethod Asset.get_items_by_modality_name({modality_name}): total {len(method_return)}')
-    print()
-    pp(method_return[:5])
+    print('All active symbols (ActiveSymbol):')
+    active_symbols = ActiveSymbol.get_items()
+    print(f'Total: {len(active_symbols)}')
+    pp(active_symbols[:5])
     print('...')
 
     print(line)
-    duration = '7'
-    duration_unit = 't'
-    method_return = Asset.get_items_by_duration(duration=duration, duration_unit=duration_unit, fit_in_units=True)
-    print(f'@classmethod Asset.get_items_by_duration(duration={duration}, duration_unit={duration_unit}, fit_in_units=True): total {len(method_return)}')
-    print()
-    pp(method_return)
+    print('Tradeable symbols (ActiveSymbol):')
+    tradeable_symbols = ActiveSymbol.get_items_tradeable()
+    print(f'Total: {len(tradeable_symbols)}')
+    pp(tradeable_symbols[:5])
+    print('...')
+
+    print(line)
+    print('Active symbols by market "forex" (ActiveSymbol):')
+    forex_symbols = ActiveSymbol.get_items_by_market('forex')
+    print(f'Total: {len(forex_symbols)}')
+    pp(forex_symbols[:5])
+    print('...')
+
+async def test_symbol_manager():
+    """Tests SymbolManager class functionality."""
+    line = f'\n{100*"-"}\n'
+    
+    print(line)
+    print('Available contracts (SymbolManager):')
+    available_contracts = SymbolManager.get_available_contracts()
+    print(f'Total: {len(available_contracts)}')
+    pp(available_contracts[:5])
+    print('...')
+
+    print(line)
+    print('Contracts by market "synthetic_index" (SymbolManager):')
+    synthetic_contracts = SymbolManager.get_by_market('synthetic_index')
+    print(f'Total: {len(synthetic_contracts)}')
+    pp(synthetic_contracts[:5])
+    print('...')
+
+    print(line)
+    print('Contracts by duration "7t" with fit_in_units=True (SymbolManager):')
+    duration_contracts = SymbolManager.get_by_duration(duration='7', duration_unit='t', fit_in_units=True)
+    print(f'Total: {len(duration_contracts)}')
+    pp(duration_contracts[:5])
+    print('...')
+
+    # Previous tests from test_assets (commented out)
+    # print(line)
+    # print('All assets (Asset):')
+    # assets = Asset.get_items()
+    # print(f'Total: {len(assets)}')
+    # pp(assets[:5])
+    # print('...')
+    
+    # print(line)
+    # print('Assets by symbol_id "frxAUDJPY" (Asset):')
+    # audjpy_assets = Asset.get_items_by_symbol_id('frxAUDJPY')
+    # print(f'Total: {len(audjpy_assets)}')
+    # pp(audjpy_assets)
+
+    # print(line)
+    # print('Assets by symbol_name "AUD" (Asset):')
+    # aud_assets = Asset.get_items_by_symbol_name('AUD')
+    # print(f'Total: {len(aud_assets)}')
+    # pp(aud_assets[:5])
+    # print('...')
+
+    # print(line)
+    # print('Assets by modality_group "callput" (Asset):')
+    # callput_assets = Asset.get_items_by_modality_group('callput')
+    # print(f'Total: {len(callput_assets)}')
+    # pp(callput_assets[:5])
+    # print('...')
+
+    # print(line)
+    # print('Assets by modality_name "Rise/Fall" (Asset):')
+    # risefall_assets = Asset.get_items_by_modality_name('Rise/Fall')
+    # print(f'Total: {len(risefall_assets)}')
+    # pp(risefall_assets[:5])
+    # print('...')
+
+    # print(line)
+    # print('Assets by duration "7t" with fit_in_units=True (Asset):')
+    # duration_assets = Asset.get_items_by_duration(duration='7', duration_unit='t', fit_in_units=True)
+    # print(f'Total: {len(duration_assets)}')
+    # pp(duration_assets[:5])
+    # print('...')
+
+    # Previous tests from test_active_symbols (commented out)
+    # print(line)
+    # print('All active symbols (ActiveSymbol):')
+    # active_symbols = ActiveSymbol.get_items()
+    # print(f'Total: {len(active_symbols)}')
+    # pp(active_symbols[:5])
+    # print('...')
+
+    # print(line)
+    # print('Tradeable symbols (ActiveSymbol):')
+    # tradeable_symbols = ActiveSymbol.get_items_tradeable()
+    # print(f'Total: {len(tradeable_symbols)}')
+    # pp(tradeable_symbols[:5])
+    # print('...')
+
+    # print(line)
+    # print('Active symbols by market "forex" (ActiveSymbol):')
+    # forex_symbols = ActiveSymbol.get_items_by_market('forex')
+    # print(f'Total: {len(forex_symbols)}')
+    # pp(forex_symbols[:5])
+    # print('...')
+
+async def main():
+    """Integrates connection and class tests."""
+    conn, asset_response, active_response = await test_connection_and_requests()
+    await test_assets(asset_response)
+    await test_active_symbols(active_response)
+    await test_symbol_manager()
+    await conn.disconnect()
 
 if __name__ == "__main__":
     asyncio.run(main())

@@ -13,3 +13,7 @@ class Request:
     @property
     def asset_index(self):
         return {"asset_index": 1}
+    
+    @property
+    def active_symbols(self):
+        return   {"active_symbols": "full", "product_type": "basic"}
