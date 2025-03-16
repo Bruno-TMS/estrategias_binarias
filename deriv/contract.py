@@ -385,6 +385,152 @@ class SymbolManager:
                 duration_contracts.append((symbol, asset))
         return duration_contracts
 
+    @classmethod
+    def get_trade_parameters(cls, asset_response, active_response):
+        """Interactively guides the user to select a trade parameter, listing all markets with (closed) for closed ones.
+        Allows 'exit' at any step to cancel and return empty fields."""
+        # Atualiza os dados com as respostas mais recentes do servidor
+        cls.populate_assets(asset_response)
+        cls.populate_active_symbols(active_response)
+
+        # Obtém todos os símbolos (abertos e fechados)
+        all_symbols = ActiveSymbol.get_items()
+        if not all_symbols:
+            print("Nenhum símbolo disponível no momento.")
+            return ["symbol: , market: , submarket: , display_name: , modality: , modality_name: "]
+
+        # Passo 1: Seleção de Mercado
+        markets = sorted(set(symbol.market_display_name for symbol in all_symbols))
+        market_status = {}
+        for market in markets:
+            # Verifica se pelo menos um símbolo do mercado está aberto
+            is_open = any(symbol.exchange_is_open == 1 and symbol.is_trading_suspended == 0 
+                          for symbol in all_symbols if symbol.market_display_name == market)
+            market_status[market] = "" if is_open else " (closed)"
+        
+        print("\nMercados disponíveis:")
+        for i, market in enumerate(markets, 1):
+            print(f"{i} - {market}{market_status[market]}")
+        while True:
+            selected_market_input = input("Dos mercados apresentados, selecione uma opção (número) ou 'exit' para sair: ").strip().lower()
+            if selected_market_input == "exit":
+                confirm = input("Deseja realmente sair? (y/n): ").strip().lower()
+                if confirm == "y":
+                    return ["symbol: , market: , submarket: , display_name: , modality: , modality_name: "]
+                print("Continuando...")
+                continue
+            try:
+                selected_market_idx = int(selected_market_input) - 1
+                if 0 <= selected_market_idx < len(markets):
+                    selected_market = markets[selected_market_idx]
+                    break
+                print("Opção inválida. Tente novamente.")
+            except ValueError:
+                print("Digite um número válido ou 'exit'.")
+
+        # Passo 2: Seleção de Submercado
+        submarkets = sorted(set(symbol.submarket_display_name for symbol in all_symbols 
+                                if symbol.market_display_name == selected_market))
+        print(f"\nSubmercados disponíveis para {selected_market}{market_status[selected_market]}:")
+        for i, submarket in enumerate(submarkets, 1):
+            print(f"{i} - {submarket}")
+        while True:
+            selected_submarket_input = input("Dos submercados apresentados, selecione uma opção (número) ou 'exit' para sair: ").strip().lower()
+            if selected_submarket_input == "exit":
+                confirm = input("Deseja realmente sair? (y/n): ").strip().lower()
+                if confirm == "y":
+                    return ["symbol: , market: , submarket: , display_name: , modality: , modality_name: "]
+                print("Continuando...")
+                continue
+            try:
+                selected_submarket_idx = int(selected_submarket_input) - 1
+                if 0 <= selected_submarket_idx < len(submarkets):
+                    selected_submarket = submarkets[selected_submarket_idx]
+                    break
+                print("Opção inválida. Tente novamente.")
+            except ValueError:
+                print("Digite um número válido ou 'exit'.")
+
+        # Passo 3: Seleção de Símbolo
+        symbols = [(symbol.symbol, symbol.display_name) for symbol in all_symbols 
+                   if symbol.market_display_name == selected_market and symbol.submarket_display_name == selected_submarket]
+        print(f"\nSímbolos disponíveis para {selected_submarket}:")
+        for i, (symbol_id, display_name) in enumerate(symbols, 1):
+            print(f"{i} - {symbol_id} ({display_name})")
+        while True:
+            selected_symbol_input = input("Dos símbolos apresentados, selecione uma opção (número) ou 'exit' para sair: ").strip().lower()
+            if selected_symbol_input == "exit":
+                confirm = input("Deseja realmente sair? (y/n): ").strip().lower()
+                if confirm == "y":
+                    return ["symbol: , market: , submarket: , display_name: , modality: , modality_name: "]
+                print("Continuando...")
+                continue
+            try:
+                selected_symbol_idx = int(selected_symbol_input) - 1
+                if 0 <= selected_symbol_idx < len(symbols):
+                    selected_symbol_id, selected_symbol_name = symbols[selected_symbol_idx]
+                    break
+                print("Opção inválida. Tente novamente.")
+            except ValueError:
+                print("Digite um número válido ou 'exit'.")
+
+        # Passo 4: Seleção de Modalidade (Grupo)
+        assets = Asset.get_items_by_symbol_id(selected_symbol_id)
+        modality_groups = sorted(set(asset.modality_group for asset in assets))
+        print(f"\nGrupos de modalidade disponíveis para {selected_symbol_name}:")
+        for i, modality_group in enumerate(modality_groups, 1):
+            print(f"{i} - {modality_group}")
+        while True:
+            selected_modality_group_input = input("Dos grupos de modalidade apresentados, selecione uma opção (número) ou 'exit' para sair: ").strip().lower()
+            if selected_modality_group_input == "exit":
+                confirm = input("Deseja realmente sair? (y/n): ").strip().lower()
+                if confirm == "y":
+                    return ["symbol: , market: , submarket: , display_name: , modality: , modality_name: "]
+                print("Continuando...")
+                continue
+            try:
+                selected_modality_group_idx = int(selected_modality_group_input) - 1
+                if 0 <= selected_modality_group_idx < len(modality_groups):
+                    selected_modality_group = modality_groups[selected_modality_group_idx]
+                    break
+                print("Opção inválida. Tente novamente.")
+            except ValueError:
+                print("Digite um número válido ou 'exit'.")
+
+        # Passo 5: Seleção de Nome da Modalidade
+        modality_names = sorted(set(asset.modality_name for asset in assets 
+                                    if asset.modality_group == selected_modality_group))
+        print(f"\nNomes de modalidade disponíveis para {selected_modality_group}:")
+        for i, modality_name in enumerate(modality_names, 1):
+            print(f"{i} - {modality_name}")
+        while True:
+            selected_modality_name_input = input("Dos nomes de modalidade apresentados, selecione uma opção (número) ou 'exit' para sair: ").strip().lower()
+            if selected_modality_name_input == "exit":
+                confirm = input("Deseja realmente sair? (y/n): ").strip().lower()
+                if confirm == "y":
+                    return ["symbol: , market: , submarket: , display_name: , modality: , modality_name: "]
+                print("Continuando...")
+                continue
+            try:
+                selected_modality_name_idx = int(selected_modality_name_input) - 1
+                if 0 <= selected_modality_name_idx < len(modality_names):
+                    selected_modality_name = modality_names[selected_modality_name_idx]
+                    break
+                print("Opção inválida. Tente novamente.")
+            except ValueError:
+                print("Digite um número válido ou 'exit'.")
+
+        # Formata o contrato final na ordem solicitada
+        trade_parameter = (
+            f"symbol: {selected_symbol_id}, "
+            f"market: {selected_market}, "
+            f"submarket: {selected_submarket}, "
+            f"display_name: {selected_symbol_name}, "
+            f"modality: {selected_modality_group}, "
+            f"modality_name: {selected_modality_name}"
+        )
+        return [trade_parameter]
+
 async def test_connection_and_requests():
     """Tests connection and sends requests for asset_index and active_symbols."""
     line = f'\n{100*"-"}\n'
@@ -410,66 +556,66 @@ async def test_connection_and_requests():
 
     return conn, asset_response, active_response
 
-async def test_assets(asset_response):
-    """Tests Asset class population and filtering."""
-    line = f'\n{100*"-"}\n'
-    success = Asset.populate(asset_response)
-    print(f"Asset population successful: {success}")
+# async def test_assets(asset_response):
+#     """Tests Asset class population and filtering."""
+#     line = f'\n{100*"-"}\n'
+#     success = Asset.populate(asset_response)
+#     print(f"Asset population successful: {success}")
+#
+#     print(line)
+#     print('All assets (Asset):')
+#     assets = Asset.get_items()
+#     print(f'Total: {len(assets)}')
+#     pp(assets[:5])
+#     print('...')
+#     
+#     print(line)
+#     print('Assets by symbol_id "frxAUDJPY" (Asset):')
+#     audjpy_assets = Asset.get_items_by_symbol_id('frxAUDJPY')
+#     print(f'Total: {len(audjpy_assets)}')
+#     pp(audjpy_assets)
 
-    print(line)
-    print('All assets (Asset):')
-    assets = Asset.get_items()
-    print(f'Total: {len(assets)}')
-    pp(assets[:5])
-    print('...')
-    
-    print(line)
-    print('Assets by symbol_id "frxAUDJPY" (Asset):')
-    audjpy_assets = Asset.get_items_by_symbol_id('frxAUDJPY')
-    print(f'Total: {len(audjpy_assets)}')
-    pp(audjpy_assets)
+# async def test_active_symbols(active_response):
+#     """Tests ActiveSymbol class population and filtering."""
+#     line = f'\n{100*"-"}\n'
+#     success = ActiveSymbol.populate(active_response)
+#     print(f"ActiveSymbol population successful: {success}")
+#
+#     print(line)
+#     print('All active symbols (ActiveSymbol):')
+#     active_symbols = ActiveSymbol.get_items()
+#     print(f'Total: {len(active_symbols)}')
+#     pp(active_symbols[:5])
+#     print('...')
+#
+#     print(line)
+#     print('Tradeable symbols (ActiveSymbol):')
+#     tradeable_symbols = ActiveSymbol.get_items_tradeable()
+#     print(f'Total: {len(tradeable_symbols)}')
+#     pp(tradeable_symbols[:5])
+#     print('...')
+#
+#     print(line)
+#     print('Active symbols by market_display_name "Forex" (ActiveSymbol):')
+#     forex_symbols = ActiveSymbol.get_items_by_market_display_name('Forex')
+#     print(f'Total: {len(forex_symbols)}')
+#     pp(forex_symbols[:5])
+#     print('...')
+#
+#     print(line)
+#     print('Active symbols by submarket_display_name "Major Pairs" (ActiveSymbol):')
+#     major_pairs = ActiveSymbol.get_items_by_submarket_display_name('Major Pairs')
+#     print(f'Total: {len(major_pairs)}')
+#     pp(major_pairs[:5])
+#     print('...')
+#
+#     print(line)
+#     print('Active symbols by display_name "USD/JPY" (ActiveSymbol):')
+#     usdjpy_symbols = ActiveSymbol.get_items_by_display_name('USD/JPY')
+#     print(f'Total: {len(usdjpy_symbols)}')
+#     pp(usdjpy_symbols)
 
-async def test_active_symbols(active_response):
-    """Tests ActiveSymbol class population and filtering."""
-    line = f'\n{100*"-"}\n'
-    success = ActiveSymbol.populate(active_response)
-    print(f"ActiveSymbol population successful: {success}")
-
-    print(line)
-    print('All active symbols (ActiveSymbol):')
-    active_symbols = ActiveSymbol.get_items()
-    print(f'Total: {len(active_symbols)}')
-    pp(active_symbols[:5])
-    print('...')
-
-    print(line)
-    print('Tradeable symbols (ActiveSymbol):')
-    tradeable_symbols = ActiveSymbol.get_items_tradeable()
-    print(f'Total: {len(tradeable_symbols)}')
-    pp(tradeable_symbols[:5])
-    print('...')
-
-    print(line)
-    print('Active symbols by market_display_name "Forex" (ActiveSymbol):')
-    forex_symbols = ActiveSymbol.get_items_by_market_display_name('Forex')
-    print(f'Total: {len(forex_symbols)}')
-    pp(forex_symbols[:5])
-    print('...')
-
-    print(line)
-    print('Active symbols by submarket_display_name "Major Pairs" (ActiveSymbol):')
-    major_pairs = ActiveSymbol.get_items_by_submarket_display_name('Major Pairs')
-    print(f'Total: {len(major_pairs)}')
-    pp(major_pairs[:5])
-    print('...')
-
-    print(line)
-    print('Active symbols by display_name "USD/JPY" (ActiveSymbol):')
-    usdjpy_symbols = ActiveSymbol.get_items_by_display_name('USD/JPY')
-    print(f'Total: {len(usdjpy_symbols)}')
-    pp(usdjpy_symbols)
-
-async def test_symbol_manager():
+async def test_symbol_manager(asset_response, active_response):
     """Tests SymbolManager class functionality."""
     line = f'\n{100*"-"}\n'
 
@@ -508,12 +654,18 @@ async def test_symbol_manager():
     pp(duration_contracts[:5])
     print('...')
 
+    print(line)
+    print('Trade Parameters (SymbolManager):')
+    trade_parameters = SymbolManager.get_trade_parameters(asset_response, active_response)
+    print(f'\nResultado:')
+    pp(trade_parameters)
+
 async def main():
     """Integrates connection and class tests."""
     conn, asset_response, active_response = await test_connection_and_requests()
-    await test_assets(asset_response)
-    await test_active_symbols(active_response)
-    await test_symbol_manager()
+    # await test_assets(asset_response)
+    # await test_active_symbols(active_response)
+    await test_symbol_manager(asset_response, active_response)
     await conn.disconnect()
 
 if __name__ == "__main__":
