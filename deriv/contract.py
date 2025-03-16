@@ -36,7 +36,7 @@ class Asset:
             
             if duration_max and int(duration_max) <= 0:
                 raise ValueError(f'duration_max must be positive, received: {duration_max}')
-            
+
             self._symbol_id = symbol_id
             self._symbol_name = symbol_name
             self._modality_group = modality_group
@@ -129,7 +129,7 @@ class Asset:
                     max_duration = int(instance.duration_max)
                     min_index = cls._duration_suffixes.index(instance.duration_min_unit)
                     max_index = cls._duration_suffixes.index(instance.duration_max_unit)
-                    
+
                     if fit_in_units:
                         if min_index == param_index == max_index and min_duration <= param_duration <= max_duration:
                             result.append(instance)
@@ -138,9 +138,9 @@ class Asset:
                             or (min_index == param_index and min_duration <= param_duration) 
                             or (max_index == param_index and param_duration <= max_duration)):
                             result.append(instance)
-            
+
             return result
-            
+
         except ValueError as e:
             raise ValueError(f'Invalid duration value: {duration}') from e
 
@@ -196,15 +196,17 @@ class Asset:
 class ActiveSymbol:
     _instances = []
 
-    def __init__(self, *, symbol: str, display_name: str, exchange_is_open: int, is_trading_suspended: int, market: str):
-        if not (symbol and display_name and market and isinstance(symbol, str) and isinstance(display_name, str) and isinstance(market, str)):
-            raise ValueError('symbol, display_name, and market must be non-empty strings.')
-        
+    def __init__(self, *, symbol: str, display_name: str, exchange_is_open: int, is_trading_suspended: int, market: str, market_display_name: str, submarket_display_name: str):
+        if not (symbol and display_name and market and market_display_name and submarket_display_name and isinstance(symbol, str) and isinstance(display_name, str) and isinstance(market, str) and isinstance(market_display_name, str) and isinstance(submarket_display_name, str)):
+            raise ValueError('symbol, display_name, market, market_display_name, and submarket_display_name must be non-empty strings.')
+
         self._symbol = symbol
         self._display_name = display_name
         self._exchange_is_open = exchange_is_open
         self._is_trading_suspended = is_trading_suspended
         self._market = market
+        self._market_display_name = market_display_name
+        self._submarket_display_name = submarket_display_name
         
         ActiveSymbol._instances.append(self)
 
@@ -228,6 +230,14 @@ class ActiveSymbol:
     def market(self):
         return self._market
 
+    @property
+    def market_display_name(self):
+        return self._market_display_name
+
+    @property
+    def submarket_display_name(self):
+        return self._submarket_display_name
+
     @classmethod
     def get_items(cls):
         """Returns a list of all ActiveSymbol instances."""
@@ -243,6 +253,24 @@ class ActiveSymbol:
         """Returns a list of ActiveSymbol instances matching the market (case-insensitive)."""
         pattern = re.compile(market, flags=re.I)
         return [instance for instance in cls._instances if pattern.search(instance.market)]
+
+    @classmethod
+    def get_items_by_market_display_name(cls, market_display_name: str):
+        """Returns a list of ActiveSymbol instances matching the market_display_name (case-insensitive)."""
+        pattern = re.compile(market_display_name, flags=re.I)
+        return [instance for instance in cls._instances if pattern.search(instance.market_display_name)]
+
+    @classmethod
+    def get_items_by_submarket_display_name(cls, submarket_display_name: str):
+        """Returns a list of ActiveSymbol instances matching the submarket_display_name (case-insensitive)."""
+        pattern = re.compile(submarket_display_name, flags=re.I)
+        return [instance for instance in cls._instances if pattern.search(instance.submarket_display_name)]
+
+    @classmethod
+    def get_items_by_display_name(cls, display_name: str):
+        """Returns a list of ActiveSymbol instances matching the display_name (case-insensitive)."""
+        pattern = re.compile(display_name, flags=re.I)
+        return [instance for instance in cls._instances if pattern.search(instance.display_name)]
 
     @classmethod
     def get_items_tradeable(cls):
@@ -265,12 +293,14 @@ class ActiveSymbol:
                 display_name=symbol_data['display_name'],
                 exchange_is_open=symbol_data['exchange_is_open'],
                 is_trading_suspended=symbol_data['is_trading_suspended'],
-                market=symbol_data['market']
+                market=symbol_data['market'],
+                market_display_name=symbol_data['market_display_name'],
+                submarket_display_name=symbol_data['submarket_display_name']
             )
         return True
 
     def __str__(self):
-        return f'{self.symbol}:{self.display_name}   Open:{self.exchange_is_open}   Suspended:{self.is_trading_suspended}   Market:{self.market}'
+        return f'{self.symbol}:{self.display_name}   Open:{self.exchange_is_open}   Suspended:{self.is_trading_suspended}   Market:{self.market_display_name} ({self.submarket_display_name})'
 
     def __repr__(self):
         return self.__str__()
@@ -312,15 +342,37 @@ class SymbolManager:
         return available_contracts
 
     @classmethod
-    def get_by_market(cls, market: str):
-        """Returns a list of (ActiveSymbol, Asset) tuples for a specific market."""
-        market_symbols = ActiveSymbol.get_items_by_market(market)
+    def get_by_market_display_name(cls, market_display_name: str):
+        """Returns a list of (ActiveSymbol, Asset) tuples for a specific market_display_name."""
+        market_symbols = ActiveSymbol.get_items_by_market_display_name(market_display_name)
         market_contracts = []
         for symbol in market_symbols:
             assets = Asset.get_items_by_symbol_id(symbol.symbol)
             for asset in assets:
                 market_contracts.append((symbol, asset))
         return market_contracts
+
+    @classmethod
+    def get_by_submarket_display_name(cls, submarket_display_name: str):
+        """Returns a list of (ActiveSymbol, Asset) tuples for a specific submarket_display_name."""
+        submarket_symbols = ActiveSymbol.get_items_by_submarket_display_name(submarket_display_name)
+        submarket_contracts = []
+        for symbol in submarket_symbols:
+            assets = Asset.get_items_by_symbol_id(symbol.symbol)
+            for asset in assets:
+                submarket_contracts.append((symbol, asset))
+        return submarket_contracts
+
+    @classmethod
+    def get_by_display_name(cls, display_name: str):
+        """Returns a list of (ActiveSymbol, Asset) tuples for a specific display_name."""
+        display_symbols = ActiveSymbol.get_items_by_display_name(display_name)
+        display_contracts = []
+        for symbol in display_symbols:
+            assets = Asset.get_items_by_symbol_id(symbol.symbol)
+            for asset in assets:
+                display_contracts.append((symbol, asset))
+        return display_contracts
 
     @classmethod
     def get_by_duration(cls, duration: str, duration_unit: str, fit_in_units: bool = True):
@@ -398,16 +450,29 @@ async def test_active_symbols(active_response):
     print('...')
 
     print(line)
-    print('Active symbols by market "forex" (ActiveSymbol):')
-    forex_symbols = ActiveSymbol.get_items_by_market('forex')
+    print('Active symbols by market_display_name "Forex" (ActiveSymbol):')
+    forex_symbols = ActiveSymbol.get_items_by_market_display_name('Forex')
     print(f'Total: {len(forex_symbols)}')
     pp(forex_symbols[:5])
     print('...')
 
+    print(line)
+    print('Active symbols by submarket_display_name "Major Pairs" (ActiveSymbol):')
+    major_pairs = ActiveSymbol.get_items_by_submarket_display_name('Major Pairs')
+    print(f'Total: {len(major_pairs)}')
+    pp(major_pairs[:5])
+    print('...')
+
+    print(line)
+    print('Active symbols by display_name "USD/JPY" (ActiveSymbol):')
+    usdjpy_symbols = ActiveSymbol.get_items_by_display_name('USD/JPY')
+    print(f'Total: {len(usdjpy_symbols)}')
+    pp(usdjpy_symbols)
+
 async def test_symbol_manager():
     """Tests SymbolManager class functionality."""
     line = f'\n{100*"-"}\n'
-    
+
     print(line)
     print('Available contracts (SymbolManager):')
     available_contracts = SymbolManager.get_available_contracts()
@@ -416,10 +481,24 @@ async def test_symbol_manager():
     print('...')
 
     print(line)
-    print('Contracts by market "synthetic_index" (SymbolManager):')
-    synthetic_contracts = SymbolManager.get_by_market('synthetic_index')
-    print(f'Total: {len(synthetic_contracts)}')
-    pp(synthetic_contracts[:5])
+    print('Contracts by market_display_name "Derived" (SymbolManager):')
+    derived_contracts = SymbolManager.get_by_market_display_name('Derived')
+    print(f'Total: {len(derived_contracts)}')
+    pp(derived_contracts[:5])
+    print('...')
+
+    print(line)
+    print('Contracts by submarket_display_name "Continuous Indices" (SymbolManager):')
+    continuous_contracts = SymbolManager.get_by_submarket_display_name('Continuous Indices')
+    print(f'Total: {len(continuous_contracts)}')
+    pp(continuous_contracts[:5])
+    print('...')
+
+    print(line)
+    print('Contracts by display_name "Volatility 10 Index" (SymbolManager):')
+    vol10_contracts = SymbolManager.get_by_display_name('Volatility 10 Index')
+    print(f'Total: {len(vol10_contracts)}')
+    pp(vol10_contracts)
     print('...')
 
     print(line)
@@ -428,70 +507,6 @@ async def test_symbol_manager():
     print(f'Total: {len(duration_contracts)}')
     pp(duration_contracts[:5])
     print('...')
-
-    # Previous tests from test_assets (commented out)
-    # print(line)
-    # print('All assets (Asset):')
-    # assets = Asset.get_items()
-    # print(f'Total: {len(assets)}')
-    # pp(assets[:5])
-    # print('...')
-    
-    # print(line)
-    # print('Assets by symbol_id "frxAUDJPY" (Asset):')
-    # audjpy_assets = Asset.get_items_by_symbol_id('frxAUDJPY')
-    # print(f'Total: {len(audjpy_assets)}')
-    # pp(audjpy_assets)
-
-    # print(line)
-    # print('Assets by symbol_name "AUD" (Asset):')
-    # aud_assets = Asset.get_items_by_symbol_name('AUD')
-    # print(f'Total: {len(aud_assets)}')
-    # pp(aud_assets[:5])
-    # print('...')
-
-    # print(line)
-    # print('Assets by modality_group "callput" (Asset):')
-    # callput_assets = Asset.get_items_by_modality_group('callput')
-    # print(f'Total: {len(callput_assets)}')
-    # pp(callput_assets[:5])
-    # print('...')
-
-    # print(line)
-    # print('Assets by modality_name "Rise/Fall" (Asset):')
-    # risefall_assets = Asset.get_items_by_modality_name('Rise/Fall')
-    # print(f'Total: {len(risefall_assets)}')
-    # pp(risefall_assets[:5])
-    # print('...')
-
-    # print(line)
-    # print('Assets by duration "7t" with fit_in_units=True (Asset):')
-    # duration_assets = Asset.get_items_by_duration(duration='7', duration_unit='t', fit_in_units=True)
-    # print(f'Total: {len(duration_assets)}')
-    # pp(duration_assets[:5])
-    # print('...')
-
-    # Previous tests from test_active_symbols (commented out)
-    # print(line)
-    # print('All active symbols (ActiveSymbol):')
-    # active_symbols = ActiveSymbol.get_items()
-    # print(f'Total: {len(active_symbols)}')
-    # pp(active_symbols[:5])
-    # print('...')
-
-    # print(line)
-    # print('Tradeable symbols (ActiveSymbol):')
-    # tradeable_symbols = ActiveSymbol.get_items_tradeable()
-    # print(f'Total: {len(tradeable_symbols)}')
-    # pp(tradeable_symbols[:5])
-    # print('...')
-
-    # print(line)
-    # print('Active symbols by market "forex" (ActiveSymbol):')
-    # forex_symbols = ActiveSymbol.get_items_by_market('forex')
-    # print(f'Total: {len(forex_symbols)}')
-    # pp(forex_symbols[:5])
-    # print('...')
 
 async def main():
     """Integrates connection and class tests."""
