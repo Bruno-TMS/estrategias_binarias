@@ -531,6 +531,70 @@ class SymbolManager:
         )
         return [trade_parameter]
 
+    @classmethod
+    def find_symbol(cls, asset_response, active_response, *, symbol=None, symbol_name=None, market=None, submarket=None, display_name=None, modality=None, modality_name=None, duration=None):
+        """Finds possible symbols matching the provided parameters, returning a list of combinations.
+        Accepts 1 or more parameters, with duration using fit_in_units=False."""
+        # Atualiza os dados com as respostas mais recentes do servidor
+        cls.populate_assets(asset_response)
+        cls.populate_active_symbols(active_response)
+
+        all_symbols = ActiveSymbol.get_items()
+        all_assets = Asset.get_items()
+
+        # Depuração para verificar os dados carregados
+        print(f"Debug - asset_response: {asset_response}")
+        print(f"Debug - active_response len: {len(active_response.get('active_symbols', []))}")
+        print(f"Debug - all_symbols len: {len(all_symbols)}")
+        print(f"Debug - all_assets len: {len(all_assets)}")
+
+        if not all_symbols or not all_assets:
+            return []
+
+        # Filtra símbolos com base nos parâmetros fornecidos
+        filtered_symbols = all_symbols
+        if symbol:
+            filtered_symbols = [s for s in filtered_symbols if s.symbol == symbol]
+        if market:
+            filtered_symbols = [s for s in filtered_symbols if re.search(market, s.market_display_name, re.I)]
+        if submarket:
+            filtered_symbols = [s for s in filtered_symbols if re.search(submarket, s.submarket_display_name, re.I)]
+        if display_name:
+            filtered_symbols = [s for s in filtered_symbols if re.search(display_name, s.display_name, re.I)]
+
+        # Filtra ativos com base nos parâmetros fornecidos
+        filtered_assets = all_assets
+        if symbol_name:
+            filtered_assets = [a for a in filtered_assets if re.search(symbol_name, a.symbol_name, re.I)]
+        if modality:
+            filtered_assets = [a for a in filtered_assets if re.search(modality, a.modality_group, re.I)]
+        if modality_name:
+            filtered_assets = [a for a in filtered_assets if re.search(modality_name, a.modality_name, re.I)]
+        if duration:
+            # Extrai número e unidade do duration (ex.: '5t' -> '5', 't')
+            match = re.match(r'(\d+)([tsmhd])', duration)
+            if not match:
+                return []
+            duration_value, duration_unit = match.groups()
+            filtered_assets = Asset.get_items_by_duration(duration=duration_value, duration_unit=duration_unit, fit_in_units=False)
+
+        # Combina símbolos e ativos filtrados
+        results = []
+        for sym in filtered_symbols:
+            matching_assets = [a for a in filtered_assets if a.symbol_id == sym.symbol]
+            for asset in matching_assets:
+                result = (
+                    f"symbol: {sym.symbol}, "
+                    f"market: {sym.market_display_name}, "
+                    f"submarket: {sym.submarket_display_name}, "
+                    f"display_name: {sym.display_name}, "
+                    f"modality: {asset.modality_group}, "
+                    f"modality_name: {asset.modality_name}"
+                )
+                results.append(result)
+
+        return results
+
 async def test_connection_and_requests():
     """Tests connection and sends requests for asset_index and active_symbols."""
     line = f'\n{100*"-"}\n'
@@ -619,46 +683,53 @@ async def test_symbol_manager(asset_response, active_response):
     """Tests SymbolManager class functionality."""
     line = f'\n{100*"-"}\n'
 
-    print(line)
-    print('Available contracts (SymbolManager):')
-    available_contracts = SymbolManager.get_available_contracts()
-    print(f'Total: {len(available_contracts)}')
-    pp(available_contracts[:5])
-    print('...')
+    # print(line)
+    # print('Available contracts (SymbolManager):')
+    # available_contracts = SymbolManager.get_available_contracts()
+    # print(f'Total: {len(available_contracts)}')
+    # pp(available_contracts[:5])
+    # print('...')
+
+    # print(line)
+    # print('Contracts by market_display_name "Derived" (SymbolManager):')
+    # derived_contracts = SymbolManager.get_by_market_display_name('Derived')
+    # print(f'Total: {len(derived_contracts)}')
+    # pp(derived_contracts[:5])
+    # print('...')
+
+    # print(line)
+    # print('Contracts by submarket_display_name "Continuous Indices" (SymbolManager):')
+    # continuous_contracts = SymbolManager.get_by_submarket_display_name('Continuous Indices')
+    # print(f'Total: {len(continuous_contracts)}')
+    # pp(continuous_contracts[:5])
+    # print('...')
+
+    # print(line)
+    # print('Contracts by display_name "Volatility 10 Index" (SymbolManager):')
+    # vol10_contracts = SymbolManager.get_by_display_name('Volatility 10 Index')
+    # print(f'Total: {len(vol10_contracts)}')
+    # pp(vol10_contracts)
+    # print('...')
+
+    # print(line)
+    # print('Contracts by duration "7t" with fit_in_units=True (SymbolManager):')
+    # duration_contracts = SymbolManager.get_by_duration(duration='7', duration_unit='t', fit_in_units=True)
+    # print(f'Total: {len(duration_contracts)}')
+    # pp(duration_contracts[:5])
+    # print('...')
+
+    # print(line)
+    # print('Trade Parameters (SymbolManager):')
+    # trade_parameters = SymbolManager.get_trade_parameters(asset_response, active_response)
+    # print(f'\nResultado:')
+    # pp(trade_parameters)
 
     print(line)
-    print('Contracts by market_display_name "Derived" (SymbolManager):')
-    derived_contracts = SymbolManager.get_by_market_display_name('Derived')
-    print(f'Total: {len(derived_contracts)}')
-    pp(derived_contracts[:5])
+    print('Find Symbol (market="Stock Indices") (SymbolManager):')
+    find_results = SymbolManager.find_symbol(asset_response, active_response, duration="15m", market="Stock")
+    print(f'Total: {len(find_results)}')
+    pp(find_results[:10])  # Limita a 10 para visualização
     print('...')
-
-    print(line)
-    print('Contracts by submarket_display_name "Continuous Indices" (SymbolManager):')
-    continuous_contracts = SymbolManager.get_by_submarket_display_name('Continuous Indices')
-    print(f'Total: {len(continuous_contracts)}')
-    pp(continuous_contracts[:5])
-    print('...')
-
-    print(line)
-    print('Contracts by display_name "Volatility 10 Index" (SymbolManager):')
-    vol10_contracts = SymbolManager.get_by_display_name('Volatility 10 Index')
-    print(f'Total: {len(vol10_contracts)}')
-    pp(vol10_contracts)
-    print('...')
-
-    print(line)
-    print('Contracts by duration "7t" with fit_in_units=True (SymbolManager):')
-    duration_contracts = SymbolManager.get_by_duration(duration='7', duration_unit='t', fit_in_units=True)
-    print(f'Total: {len(duration_contracts)}')
-    pp(duration_contracts[:5])
-    print('...')
-
-    print(line)
-    print('Trade Parameters (SymbolManager):')
-    trade_parameters = SymbolManager.get_trade_parameters(asset_response, active_response)
-    print(f'\nResultado:')
-    pp(trade_parameters)
 
 async def main():
     """Integrates connection and class tests."""
