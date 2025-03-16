@@ -620,113 +620,12 @@ async def test_connection_and_requests():
 
     return conn, asset_response, active_response
 
-# async def test_assets(asset_response):
-#     """Tests Asset class population and filtering."""
-#     line = f'\n{100*"-"}\n'
-#     success = Asset.populate(asset_response)
-#     print(f"Asset population successful: {success}")
-#
-#     print(line)
-#     print('All assets (Asset):')
-#     assets = Asset.get_items()
-#     print(f'Total: {len(assets)}')
-#     pp(assets[:5])
-#     print('...')
-#     
-#     print(line)
-#     print('Assets by symbol_id "frxAUDJPY" (Asset):')
-#     audjpy_assets = Asset.get_items_by_symbol_id('frxAUDJPY')
-#     print(f'Total: {len(audjpy_assets)}')
-#     pp(audjpy_assets)
-
-# async def test_active_symbols(active_response):
-#     """Tests ActiveSymbol class population and filtering."""
-#     line = f'\n{100*"-"}\n'
-#     success = ActiveSymbol.populate(active_response)
-#     print(f"ActiveSymbol population successful: {success}")
-#
-#     print(line)
-#     print('All active symbols (ActiveSymbol):')
-#     active_symbols = ActiveSymbol.get_items()
-#     print(f'Total: {len(active_symbols)}')
-#     pp(active_symbols[:5])
-#     print('...')
-#
-#     print(line)
-#     print('Tradeable symbols (ActiveSymbol):')
-#     tradeable_symbols = ActiveSymbol.get_items_tradeable()
-#     print(f'Total: {len(tradeable_symbols)}')
-#     pp(tradeable_symbols[:5])
-#     print('...')
-#
-#     print(line)
-#     print('Active symbols by market_display_name "Forex" (ActiveSymbol):')
-#     forex_symbols = ActiveSymbol.get_items_by_market_display_name('Forex')
-#     print(f'Total: {len(forex_symbols)}')
-#     pp(forex_symbols[:5])
-#     print('...')
-#
-#     print(line)
-#     print('Active symbols by submarket_display_name "Major Pairs" (ActiveSymbol):')
-#     major_pairs = ActiveSymbol.get_items_by_submarket_display_name('Major Pairs')
-#     print(f'Total: {len(major_pairs)}')
-#     pp(major_pairs[:5])
-#     print('...')
-#
-#     print(line)
-#     print('Active symbols by display_name "USD/JPY" (ActiveSymbol):')
-#     usdjpy_symbols = ActiveSymbol.get_items_by_display_name('USD/JPY')
-#     print(f'Total: {len(usdjpy_symbols)}')
-#     pp(usdjpy_symbols)
-
 async def test_symbol_manager(asset_response, active_response):
     """Tests SymbolManager class functionality."""
     line = f'\n{100*"-"}\n'
-
-    # print(line)
-    # print('Available contracts (SymbolManager):')
-    # available_contracts = SymbolManager.get_available_contracts()
-    # print(f'Total: {len(available_contracts)}')
-    # pp(available_contracts[:5])
-    # print('...')
-
-    # print(line)
-    # print('Contracts by market_display_name "Derived" (SymbolManager):')
-    # derived_contracts = SymbolManager.get_by_market_display_name('Derived')
-    # print(f'Total: {len(derived_contracts)}')
-    # pp(derived_contracts[:5])
-    # print('...')
-
-    # print(line)
-    # print('Contracts by submarket_display_name "Continuous Indices" (SymbolManager):')
-    # continuous_contracts = SymbolManager.get_by_submarket_display_name('Continuous Indices')
-    # print(f'Total: {len(continuous_contracts)}')
-    # pp(continuous_contracts[:5])
-    # print('...')
-
-    # print(line)
-    # print('Contracts by display_name "Volatility 10 Index" (SymbolManager):')
-    # vol10_contracts = SymbolManager.get_by_display_name('Volatility 10 Index')
-    # print(f'Total: {len(vol10_contracts)}')
-    # pp(vol10_contracts)
-    # print('...')
-
-    # print(line)
-    # print('Contracts by duration "7t" with fit_in_units=True (SymbolManager):')
-    # duration_contracts = SymbolManager.get_by_duration(duration='7', duration_unit='t', fit_in_units=True)
-    # print(f'Total: {len(duration_contracts)}')
-    # pp(duration_contracts[:5])
-    # print('...')
-
-    # print(line)
-    # print('Trade Parameters (SymbolManager):')
-    # trade_parameters = SymbolManager.get_trade_parameters(asset_response, active_response)
-    # print(f'\nResultado:')
-    # pp(trade_parameters)
-
     print(line)
-    print('Find Symbol (market="Stock Indices") (SymbolManager):')
-    find_results = SymbolManager.find_symbol(asset_response, active_response, duration="15m", market="Stock")
+    print('Find Symbol (market="Stock") (SymbolManager):')  # Ajustado para refletir o parâmetro real
+    find_results = SymbolManager.find_symbol(asset_response, active_response, duration="15m", submarket="indice")
     print(f'Total: {len(find_results)}')
     pp(find_results[:10])  # Limita a 10 para visualização
     print('...')
@@ -734,8 +633,6 @@ async def test_symbol_manager(asset_response, active_response):
 async def main():
     """Integrates connection and class tests."""
     conn, asset_response, active_response = await test_connection_and_requests()
-    # await test_assets(asset_response)
-    # await test_active_symbols(active_response)
     await test_symbol_manager(asset_response, active_response)
     await conn.disconnect()
 
