@@ -5,10 +5,13 @@ from csv import DictReader
 from pathlib import Path
 from datetime import datetime
 
+
 KNV_FILE = Path(Path(__file__).parent, "knv.csv")
 
 class AppDashboard:
+
     _instance = None
+
 
     def __new__(cls, *, app_name: str, token_name: str):
         if cls._instance and (
@@ -20,10 +23,10 @@ class AppDashboard:
         if not cls._instance:
             app_id = None
             token = None
-           
+
             if not KNV_FILE.exists():
-               raise FileNotFoundError(f"Arquivo CSV '{KNV_FILE}' não encontrado.")
-           
+                raise FileNotFoundError(f"Arquivo CSV '{KNV_FILE}' não encontrado.")
+
             with open(KNV_FILE, "r", encoding="utf-8") as csv_file:
                 csv_reader = DictReader(csv_file)
                 for row in csv_reader:
@@ -39,6 +42,7 @@ class AppDashboard:
             cls._instance._app_name = app_name
             cls._instance._token_name = token_name
         return cls._instance
+
 
     @property
     def app_id(self):
@@ -56,18 +60,21 @@ class AppDashboard:
     def token_name(self):
         return self._token_name
 
-    @classmethod
-    def get_key_names(cls):
+
+    @staticmethod
+    def get_key_names():
         key_names = {}
         
         if not KNV_FILE.exists():
-               raise FileNotFoundError(f"Arquivo CSV '{KNV_FILE}' não encontrado.")
+            raise FileNotFoundError(f"Arquivo CSV '{KNV_FILE}' não encontrado.")
         
         with open(KNV_FILE, "r", encoding="utf-8") as csv_file:
             csv_reader = DictReader(csv_file)
             for row in csv_reader:
                 key_names.setdefault(row["key"], []).append(row["name"])
         return key_names
+
+
 
 class UserAccount:
     _instance = None
@@ -82,6 +89,7 @@ class UserAccount:
             cls._instance._loginid = loginid
             cls._instance._scopes = scopes
         return cls._instance
+
 
     @property
     def balance(self):
@@ -107,13 +115,17 @@ class UserAccount:
     def scopes(self):
         return self._scopes
 
+
+
 class Connector:
+    
     _instance = None
     _api = None
     _connection = None
     _connection_open = None
     _connection_close = None
     _disconnect_status = None
+
 
     def __new__(cls, app_id, token):
         if cls._instance is None:
@@ -181,6 +193,7 @@ class Connector:
                 self._api = None
         return response
 
+
     @property
     def is_alive(self):
         return self._connection is not None and not self._connection.closed
@@ -198,12 +211,14 @@ class Connector:
         return self._disconnect_status
 
 class ConnManager:
+    
     _instance = None
     _dashboard = None
     _connector = None
     _user_account = None
 
-    def __new__(cls, app_name, token_name):
+
+    def __new__(cls,*, app_name:str, token_name:str):
         if cls._instance is None:
             cls._instance = super().__new__(cls)
             cls._instance._dashboard = AppDashboard(app_name=app_name, token_name=token_name)
@@ -247,27 +262,8 @@ class ConnManager:
         if response:
             self._user_account._balance = response['balance']['balance']
 
+
     @property
     def user_account(self):
         return self._user_account
-
-if __name__ == "__main__":
-    async def test_connection():
-        key_names = AppDashboard.get_key_names()
-        print(f"Chaves disponíveis no CSV: {key_names}")
-        app_names = key_names.get("app", [])
-        token_names = key_names.get("token", [])
-        if not app_names or not token_names:
-            print("Nenhum app ou token disponível no CSV.")
-            return
-        app_name = app_names[0]
-        token_name = token_names[0]
-        print(f"Tentando conectar com app_name={app_name}, token_name={token_name}...")
-        manager = ConnManager(app_name, token_name)
-        await manager.connect()
-        await asyncio.sleep(2)  # Simula espera para testar estado
-        print(f"Estado da conexão após espera: {manager._connector.is_alive}")
-        await manager.disconnect()
-
-    asyncio.run(test_connection())   
         
