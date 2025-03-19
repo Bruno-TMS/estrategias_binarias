@@ -24,19 +24,16 @@ class TradeParameter:
         param_modality= check_str(modality)
         param_min_digit, param_min_unit = check_duration(duration_min_digit, duration_min_unit, TradeParameter._duration_units)
         param_max_digit, param_max_unit = check_duration(duration_max_digit, duration_max_unit, TradeParameter._duration_units)
-
-        match_instances = [inst for inst in cls._instances if (
-            inst.group == param_group
-            and inst.modality == param_modality
-            and inst.duration_min_digit == param_min_digit
-            and inst.duration_min_unit == param_min_unit
-            and inst.duration_max_digit == param_max_digit
-            and inst.duration_max_unit == param_max_unit)]
-
-        if len(match_instances) > 1:
-            raise ValueError('Em cls._instances contém instâncias diferentes com propriedades iguais.')
-
-        if not match_instances:
+        
+        current_instance = cls.get_instance(
+            group=param_group
+            , modality = param_modality
+            , duration_min_digit = param_min_digit
+            , duration_min_unit = param_min_unit
+            , duration_max_digit = param_max_digit
+            , duration_max_unit = param_max_unit)
+        
+        if not current_instance:
             cls._instance = super().__new__(cls)
             cls._instance._group = param_group
             cls._instance._modality = param_modality
@@ -51,7 +48,7 @@ class TradeParameter:
             
             return cls._instance
 
-        return match_instances[0]
+        return current_instance
     
     def get_key(self):
         if self.duration_min:
@@ -108,6 +105,25 @@ class TradeParameter:
                         result.append(instance)
 
         return sorted(result, key = lambda x:  x.get_key())
+    
+    @classmethod
+    def get_instance(cls,*, group:str, modality:str, duration_min_digit:int, duration_min_unit: str, duration_max_digit:int, duration_max_unit:str):
+        instances = [inst for inst in cls._instances if (
+            inst.group == group
+            and inst.modality == modality
+            and inst.duration_min_digit == duration_min_digit
+            and inst.duration_min_unit == duration_min_unit
+            and inst.duration_max_digit == duration_max_digit
+            and inst.duration_max_unit == duration_max_unit)]
+        
+        if not instances:
+            return None
+        
+        if len(instances) > 1:
+            raise ValueError('Em cls._instances contém instâncias diferentes com propriedades iguais.')
+        
+        return instances[0]
+
 
     @classmethod
     async def populate(cls, connection:ConnManager):
@@ -195,17 +211,19 @@ def show_trade_parameters_methods():
     line('TradeParameter.get_instances()')
     line('TradeParameter.get_instances_by_group("put")')
     line('TradeParameter.get_instances_by_modality("options")')
-    line('TradeParameter.get_instances_by_modality("options")')
     line('TradeParameter.get_instances_by_duration(digit = 7, unit ="t")')
     line('TradeParameter.get_instances_by_duration(digit = 45, unit ="h", fit_in_units=False)')
+    line('TradeParameter.get_instance(group="callput", modality="Higher/Lower", duration_min_digit=5, duration_min_unit="t", duration_max_digit=1, duration_max_unit="d")')
     print()
-    
+
+
 async def main():
     conn = set_connection()
     await conn.connect()
     await TradeParameter.populate(conn)
     show_trade_parameters_methods()
     await conn.disconnect()
+
 
 if __name__ == '__main__':
     asyncio.run(main())
