@@ -5,6 +5,7 @@ from util import check_str, check_duration
 from connection import ConnManager, AppDashboard
 from request import asset_index
 
+
 def line(value):
     ln = f'\n{"-"*100}'
     print(ln)
@@ -12,7 +13,9 @@ def line(value):
 
     pp(eval(value))
 
+
 class TradeParameter:
+#region TradeParameter_ClassDefinitions
     _instances = []
     _duration_units = ['t','s','m','h','d']
     _groups = set()
@@ -49,21 +52,69 @@ class TradeParameter:
             return cls._instance
 
         return current_instance
-    
+#endregion
+
+#region TradeParameter_InstanceMembers
     def get_key(self):
         if self.duration_min:
             idx = TradeParameter._duration_units.index(self.duration_min_unit) 
             return f'{self.group}{self.modality}{idx}{str(self.duration_min_digit).zfill(4)}'
         else:
             return f'{self.group}{self.modality}'
+#endregion
 
-    @classmethod
-    def get_groups(cls):
-        return sorted(cls._groups)
+#region TradeParameter_Properties
+    @property
+    def group(self):
+        return self._group
 
+    @property
+    def modality(self):
+        return self._modality
+
+    @property
+    def duration_min_digit(self):
+        return self._duration_min_digit
+
+    @property
+    def duration_min_unit(self):
+        return self._duration_min_unit
+
+    @property
+    def duration_min(self):
+        return f'{self._duration_min_digit}{self._duration_min_unit}' if self._duration_min_digit and self._duration_min_unit else ''
+
+    @property
+    def duration_max_digit(self):
+        return self._duration_max_digit
+
+    @property
+    def duration_max_unit(self):
+        return self._duration_max_unit
+
+    @property
+    def duration_max(self):
+        return f'{self._duration_max_digit}{self._duration_max_unit}' if self._duration_max_digit and self._duration_max_unit else ''
+#endregion
+
+#region TradeParameter_ClassMethods
     @classmethod
-    def get_modalities(cls):
-        return sorted(cls._modalities)
+    def get_instance(cls,*, group:str, modality:str, duration_min_digit:int, duration_min_unit: str, duration_max_digit:int, duration_max_unit:str):
+        instances = [inst for inst in cls._instances if (
+            inst.group == group
+            and inst.modality == modality
+            and inst.duration_min_digit == duration_min_digit
+            and inst.duration_min_unit == duration_min_unit
+            and inst.duration_max_digit == duration_max_digit
+            and inst.duration_max_unit == duration_max_unit)]
+
+        if not instances:
+            return None
+
+        if len(instances) > 1:
+            raise ValueError('Em cls._instances contém instâncias diferentes com propriedades iguais.')
+
+        return instances[0]
 
     @classmethod
     def get_instances(cls):
@@ -105,25 +156,14 @@ class TradeParameter:
                         result.append(instance)
 
         return sorted(result, key = lambda x:  x.get_key())
-    
-    @classmethod
-    def get_instance(cls,*, group:str, modality:str, duration_min_digit:int, duration_min_unit: str, duration_max_digit:int, duration_max_unit:str):
-        instances = [inst for inst in cls._instances if (
-            inst.group == group
-            and inst.modality == modality
-            and inst.duration_min_digit == duration_min_digit
-            and inst.duration_min_unit == duration_min_unit
-            and inst.duration_max_digit == duration_max_digit
-            and inst.duration_max_unit == duration_max_unit)]
-        
-        if not instances:
-            return None
-        
-        if len(instances) > 1:
-            raise ValueError('Em cls._instances contém instâncias diferentes com propriedades iguais.')
-        
-        return instances[0]
 
+    @classmethod
+    def get_groups(cls):
+        return sorted(cls._groups)
+
+    @classmethod
+    def get_modalities(cls):
+        return sorted(cls._modalities)
 
     @classmethod
     async def populate(cls, connection:ConnManager):
@@ -157,45 +197,130 @@ class TradeParameter:
                     duration_max_digit=duration_max_digit,
                     duration_max_unit=duration_max_unit
                 )
-        return True        
+        return True    
+#endregion
 
-    @property
-    def group(self):
-        return self._group
-
-    @property
-    def modality(self):
-        return self._modality
-
-    @property
-    def duration_min_digit(self):
-        return self._duration_min_digit
-
-    @property
-    def duration_min_unit(self):
-        return self._duration_min_unit
-
-    @property
-    def duration_min(self):
-        return f'{self._duration_min_digit}{self._duration_min_unit}' if self._duration_min_digit and self._duration_min_unit else ''
-
-    @property
-    def duration_max_digit(self):
-        return self._duration_max_digit
-
-    @property
-    def duration_max_unit(self):
-        return self._duration_max_unit
-
-    @property
-    def duration_max(self):
-        return f'{self._duration_max_digit}{self._duration_max_unit}' if self._duration_max_digit and self._duration_max_unit else ''
-
+#region TradeParameter_DoubleUnder
     def __str__(self):
         return f"{self.group:<12}   {self.modality:<26}   min:{self.duration_min:>5}   max:{self.duration_max:>5}"
     
     def __repr__(self):
         return self.__str__()
+#endregion
+
+class TradeSymbol:
+
+#region TradeSymbol_ClassDefinitions
+    _instances = []
+    _trade_parameters = []
+    _instance = None
+    
+    def __new__(cls, symbol:str, display_name:str):
+        param_symbol = check_str(symbol)
+        param_display_name = check_str(display_name)
+        
+        current_instance = cls.get_instance(symbol = param_symbol)
+        
+        if not current_instance:
+            cls._instance = super().__new__(cls)
+            cls._symbol = param_symbol
+            cls._display_name = param_display_name
+            
+            return cls._instance
+        
+        return current_instance
+#endregion
+
+#region TradeSymbol_InstanceMembers
+    def get_key(self):
+        return f'{self._symbol}{self._display_name}'
+#endregion
+
+#region TradeSymbol_Properties
+    @property
+    def symbol(self):
+        return self._symbol
+    
+    @property
+    def display_name(self):
+        return self._display_name
+
+    @property
+    def trade_parameters(self):
+        return self._trade_parameters
+#endregion
+
+#region TradeSymbol_ClassMethods
+    @classmethod
+    def get_instance(cls, symbol:str):
+        instances = [instance for instance in TradeSymbol._instances if instance.symbol == symbol]
+        if not instances:
+            return None
+        
+        if len(instances) > 1:
+            raise ValueError('Em TradeSymbol contém instâncias diferentes com propriedade "symbol" iguais.')
+        
+        return instances[0]
+        
+    @classmethod
+    def get_instances(cls):
+        return sorted(cls._instances, key= lambda x: x.get_key())
+
+    @classmethod
+    def get_instances_by_display_name(cls, display_name):
+        pattern = re.compile(display_name, flags=re.I)
+        return sorted([instance for instance in cls._instances if pattern.search(display_name)])
+
+    @classmethod
+    async def populate(cls, connection:ConnManager):
+        cls._instances.clear()
+        response = await connection.send_request(asset_index())
+        assets = response.get('asset_index', False)
+        
+        if not assets:
+            print(f'Valores inválidos para key "asset_index" em response.')
+            return False
+        
+        pp(response)
+        
+        for asset in assets:
+            symbol = asset[0]
+            display_name = asset[1]
+            
+            ts = TradeSymbol(symbol, display_name)
+            
+            trade_parameters = asset[2]
+            
+            for trade_parameter in trade_parameters:
+                group = trade_parameter[0]
+                modality = trade_parameter[1]
+                duration_min = trade_parameter[2]
+                duration_max = trade_parameter[3]
+                duration_min_digit = duration_min[:-1] if duration_min else None
+                duration_min_unit = duration_min[-1] if duration_min else None
+                duration_max_digit = duration_max[:-1] if duration_max else None
+                duration_max_unit = duration_max[-1] if duration_max else None
+                tp = TradeParameter(
+                    group=group,
+                    modality=modality,
+                    duration_min_digit=duration_min_digit,
+                    duration_min_unit=duration_min_unit,
+                    duration_max_digit=duration_max_digit,
+                    duration_max_unit=duration_max_unit
+                )
+                ts._trade_parameters.append(tp)
+                
+        return True
+#endregion
+
+#region TradeSymbol_DoubleUnder
+    def __str__(self):
+        return f'{self._symbol}{self._display_name}'
+
+    def __repr__(self):
+        return self.__str__()
+#endregion
+
 
 def set_connection() -> ConnManager:
     app_name = AppDashboard.get_key_names().get('app')[0]
@@ -206,16 +331,20 @@ def set_connection() -> ConnManager:
         raise ValueError(f'app_name:{app_name} ou token_name{token_name} inválido.')
 
 def show_trade_parameters_methods():
-    line('TradeParameter.get_groups()')
-    line('TradeParameter.get_modalities()')
+    line('TradeParameter.get_instance(group="callput", modality="Higher/Lower", duration_min_digit=5, duration_min_unit="t", duration_max_digit=1, duration_max_unit="d")')
     line('TradeParameter.get_instances()')
     line('TradeParameter.get_instances_by_group("put")')
     line('TradeParameter.get_instances_by_modality("options")')
     line('TradeParameter.get_instances_by_duration(digit = 7, unit ="t")')
     line('TradeParameter.get_instances_by_duration(digit = 45, unit ="h", fit_in_units=False)')
-    line('TradeParameter.get_instance(group="callput", modality="Higher/Lower", duration_min_digit=5, duration_min_unit="t", duration_max_digit=1, duration_max_unit="d")')
+    line('TradeParameter.get_groups()')
+    line('TradeParameter.get_modalities()')
     print()
 
+def show_trade_symbol_methods():
+    line('TradeSymbol.get_instance("WLDAUD")')
+    line('TradeSymbol.get_instances()')
+    line('TradeSymbol.get_instances_by_display_name("AUD")')
 
 async def main():
     conn = set_connection()
