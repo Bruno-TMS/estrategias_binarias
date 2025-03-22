@@ -5,7 +5,7 @@ from util import check_str
 from connection import ConnManager, AppDashboard
 from request import asset_index
 
-def line(value):
+def line(value: str):
     ln = f'\n{"-"*100}'
     print(ln)
     print(f'{value}:\n')
@@ -16,7 +16,7 @@ class Asset:
     _instances = []
     _info_symbols = dict()
 
-    def __new__(cls,*, group:str, modality:str, digit_min:str, unit_min:str, digit_max:str, unit_max:str):
+    def __new__(cls,*, group: str, modality: str, digit_min: str, unit_min: str, digit_max: str, unit_max: str):
         
         if (not check_str(group)) or (not check_str(modality)):
             raise ValueError(f'String(s) inválida(s) ou nula(s) para group:{group} e/ou modality:{modality}.')
@@ -57,10 +57,10 @@ class Asset:
             instance._key = f'{group}{modality}{min_info.get("key")}{max_info.get("key")}'
             
             if min_info.get("duration"):
-                instance._str = f'{group:>12}{modality:^30}min:{min_info.get("duration"):<5}max:{max_info.get("duration"):<4}'
+                instance._str = f'{group:>12} — {modality:<26}  {min_info.get("duration"):>3} — {max_info.get("duration"):>4}'
 
             else:
-                instance._str = f'{group:>12}{modality:^30}min:{"":<5}max:{"":<4}'
+                instance._str = f'{group:>12}   {modality:<26}  {"":<3}   {"":<4}'
 
             instance._symbols = set()
 
@@ -86,19 +86,15 @@ class Asset:
         return self._max_duration
 
     @property
-    def key(self):
-        return self._key
-
-    @property
     def symbols(self):
         return tuple(self._symbols)
 
-    def add_symbol(self,*, symbol:str, display_name:str):
+    def add_symbol(self,*, symbol: str, display_name: str):
         if not check_str(symbol) or not check_str(display_name):
             raise ValueError(f'String(s) inválida(s) ou nula(s) para symbol:{symbol} e/ou display_name:{display_name}')
-        
+
         self._symbols.add(symbol)
-        Asset._info_symbols.setdefault(symbol, display_name)
+        Asset._info_symbols.setdefault(symbol, [symbol, display_name, f'{symbol:>9} — {display_name:<25}', symbol.lower()])
 
     def __str__(self):
         return self._str
@@ -109,7 +105,7 @@ class Asset:
 
 #region TradeParameter_ClassMembers
     @classmethod
-    def find(cls,*, group:str, modality:str, digit_min:int, unit_min:str, digit_max:int, unit_max:str):
+    def find(cls,*, group: str, modality: str, digit_min: int, unit_min: str, digit_max: int, unit_max: str):
         instances = [inst for inst in cls._instances if (
             inst._group == group
             and inst._modality == modality
@@ -131,17 +127,17 @@ class Asset:
         return sorted(cls._instances, key=lambda x: x._key)
 
     @classmethod
-    def get_by_group(cls, group: str, *,restricted = False):
+    def get_by_group(cls, group: str, *, restricted: bool= False):
         pattern = re.compile(group, flags=re.I)
         return sorted([inst for inst in cls._instances if (pattern.search(inst._group) if not restricted else pattern.fullmatch(inst._group))], key=lambda x: x._key)
 
     @classmethod
-    def get_by_modality(cls, modality: str, *,restricted = False):
-        pattern = re.compile(modality, flags=re.I)
+    def get_by_modality(cls, modality: str, *, restricted: bool= False):
+        pattern = re.compile(modality, flags= re.I)
         return sorted([inst for inst in cls._instances if (pattern.search(inst.modality) if not restricted else pattern.fullmatch(inst.modality) )], key=lambda x: x._key)
 
     @classmethod
-    def get_by_duration(cls, *, digit: str, unit: str, fit_in_units: bool = True):
+    def get_by_duration(cls, *, digit: str, unit: str, fit_in_units: bool= True):
         
         drt_info = cls.get_info_duration(digit=digit, unit=unit)
         
@@ -154,29 +150,38 @@ class Asset:
             return sorted(instances, key= lambda x: x._key)
 
     @classmethod
-    def get_by_symbol(cls, symbol:str):
-        return sorted([inst for inst in cls._instances if symbol  in inst._symbols], key= lambda x: x._key)
-
-    @classmethod
     def get_groups(cls):
         return sorted({inst._group for inst in cls._instances})
 
     @classmethod
     def get_modalities(cls):
         return sorted({inst._modality for inst in cls._instances})
-    
+
     @classmethod
-    def get_symbols_by_group(cls, group,*,display_name = True):
-        instances = cls.get_by_group(group, restricted=True)
+    def get_symbols(cls, *, display_name: bool= True):
+        return [sym[2] if display_name else sym[0] for sym in sorted(cls._info_symbols.values(), key= lambda x: x[3])]
+
+    @classmethod
+    def get_by_symbol(cls, symbol: str):
+        return sorted([inst for inst in cls._instances if symbol  in inst._symbols], key= lambda x: x._key)
+
+    @classmethod
+    def get_symbols_by_group(cls, group, *, display_name: bool= True, restricted: bool= True):
+        instances = cls.get_by_group(group, restricted=restricted)
         symbols = {symbol for inst in instances for symbol in inst._symbols}
-        return sorted([f'{sym} — {cls._info_symbols.get(sym)}' if display_name else sym for sym in symbols])
-    
+        return [(cls._info_symbols.get(sym)[2] if display_name else cls._info_symbols.get(sym)[0])  for sym in sorted(symbols)]
+
     @classmethod
-    def get_symbols_by_modality(cls, modality: str, *,display_name = True, restricted = False):
-        instances = cls.get_by_modality(modality=modality, restricted = restricted)
-        symbols = {(symbol, inst) for inst in instances for symbol in inst._symbols}
-        return sorted([f'{sym[0]}:{cls._info_symbols.get(sym[0])} — {sym[1]}' if display_name else sym for sym in symbols])
-        
+    def get_symbols_by_modality(cls, modality: str, *, display_name: bool= True, restricted: bool= True):
+        instances = cls.get_by_modality(modality= modality, restricted= restricted)
+        symbols = {symbol for inst in instances for symbol in inst._symbols}
+        return [(cls._info_symbols.get(sym)[2] if display_name else cls._info_symbols.get(sym)[0]) for sym in sorted(symbols, key= lambda x: str.lower(x))]
+
+    @classmethod
+    def get_symbols_by_display_name(cls, display_name: str):
+        pattern = re.compile(display_name, flags= re.I)
+        return [vlws[2] for vlws in sorted(cls._info_symbols.values(), key= lambda x: x[3]) if pattern.search(vlws[1])]
+
     @classmethod
     async def populate(cls, connection:ConnManager):
         cls._instances.clear()
@@ -187,7 +192,7 @@ class Asset:
         if not assets:
             print(f'Valores inválidos para key "asset_index" em response.')
             return False
-        
+
         pp(response)
 
         for asset in assets:
@@ -204,7 +209,7 @@ class Asset:
                     , unit_max = trade_info[3][-1] if trade_info[3] else None                
                 )
                 tp.add_symbol(symbol=symbol, display_name=display_name)
-                
+
         return True    
 #endregion
 
@@ -258,21 +263,13 @@ def show_Asset_methods():
     line('Asset.get_by_duration(digit = "45", unit ="h", fit_in_units=False)')
     line('Asset.get_groups()')
     line('Asset.get_modalities()')
+    line('Asset.get_symbols()')
+    line('Asset.get_symbols(display_name= False)')
     line('Asset.get_symbols_by_group("reset")')
     line('Asset.get_symbols_by_modality("equal")')
+    line('Asset.get_symbols_by_modality("equal",restricted=False)')
+    line('Asset.get_symbols_by_display_name("AUD")')
     print()
-
-
-
-#def show_trade_symbol_methods():
-# line('TradeSymbol.get_instance("WLDAUD")')
-# line('TradeSymbol.get_full_instance("WLDAUD")')
-# line('TradeSymbol.get_instances()')
-# line('TradeSymbol.get_full_instances()')
-# line('TradeSymbol.get_instances_by_trade_group("put")')  
-# line('TradeSymbol.get_instances_by_display_name("aud")')
-    
-
 
 async def main():
     conn = set_connection()
@@ -280,7 +277,6 @@ async def main():
     await Asset.populate(conn)
     show_Asset_methods()
     await conn.disconnect()
-
 
 if __name__ == '__main__':
     asyncio.run(main())
