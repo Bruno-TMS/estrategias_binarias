@@ -242,7 +242,7 @@ class ActiveSymbol:
             raise ValueError(f'String(s) inválida(s) ou nula(s) para symbol:{symbol}')
         
         key = f'{not is_trading_suspended}{not exchange_is_open}{market}{sub_market}{symbol}'
-        instance = cls.find(key)
+        instance = cls.find(key, only_key=True)
         srt_repr = f'{market_display_name if market_display_name else "":<16} {submarket_display_name if submarket_display_name else "":<19} {display_name}{"(XX)" if is_trading_suspended else ""} {"" if exchange_is_open else " — closed":>10}'
         
         if not instance:
@@ -278,7 +278,7 @@ class ActiveSymbol:
         cls._instances.clear()
         
     @classmethod
-    def find(cls, value, only_key=True):
+    def find(cls, value, only_key=False):
         if only_key:
             insts = [inst for inst in cls._instances if inst._key == value]
             if not insts:
@@ -403,7 +403,8 @@ async def main():
     if resp_asset_index and resp_active_symbols:
         lst_asset_index = resp_asset_index.get('asset_index')
         lst_active_symbols = resp_active_symbols.get('active_symbols')
-        
+        #pp(lst_asset_index)
+        #pp(lst_active_symbols)
         if lst_asset_index and lst_active_symbols:
             AssetParameter.clear()
             ActiveSymbol.clear()
