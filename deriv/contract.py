@@ -12,7 +12,7 @@ def line(value: str):
 
     pp(eval(value))
 
-class AssetIndex:
+class AssetParameter:
     _instances = []
 
     def __new__(cls,*, group, modality, digit_min, unit_min, digit_max, unit_max):
@@ -55,7 +55,7 @@ class AssetIndex:
             srt_repr = srt_repr + f' {min_duration:>3} {max_duration:>4}'
             has_duration = True
         
-        instance = AssetIndex.find(key)
+        instance = AssetParameter.find(key)
 
         if not instance:
             instance = super().__new__(cls)
@@ -98,7 +98,7 @@ class AssetIndex:
     @property
     def max_duration(self):
         return self._max_duration
-    
+
     @property
     def key(self):
         return self._key
@@ -111,6 +111,10 @@ class AssetIndex:
 #endregion
 
 #region TradeParameter_ClassMembers
+    @classmethod
+    def clear(cls):
+        cls._instances.clear()
+        
     @classmethod
     def find(cls, key):
         instances = [inst for inst in cls._instances if inst._key == key]
@@ -162,9 +166,6 @@ class AssetIndex:
     def get_modalities(cls):
         return sorted({inst._modality for inst in cls._instances})
     
-    @classmethod
-    def clear(cls):
-        cls._instances.clear()
     # @classmethod
     # def get_symbols(cls, *, display_name: bool= True):
     #     return [sym[2] if display_name else sym[0] for sym in sorted(cls._info_symbols.values(), key= lambda x: x[3])]
@@ -189,39 +190,9 @@ class AssetIndex:
     # def get_symbols_by_display_name(cls, display_name: str):
     #     pattern = re.compile(display_name, flags= re.I)
     #     return [vlws[2] for vlws in sorted(cls._info_symbols.values(), key= lambda x: x[3]) if pattern.search(vlws[1])]
-
-    @classmethod
-    async def populate(cls, connection:ConnManager):
-        cls._instances.clear()
-        response = await connection.send_request(req.ASSET_INDEX)
-
-        assets = response.get('asset_index', False)
-
-        if not assets:
-            print(f'Valores inválidos para key "asset_index" em response.')
-            return False
-
-        pp(response)
-
-        for asset in assets:
-            symbol = asset[0]
-            display_name = asset[1]
-            param_trades = asset[2]
-            for trade_info in param_trades:
-                tp = AssetIndex(
-                    group = trade_info[0]
-                    , modality = trade_info[1]
-                    , digit_min = trade_info[2][:-1] if trade_info[2] else None
-                    , unit_min = trade_info[2][-1] if trade_info[2] else None
-                    , digit_max = trade_info[3][:-1] if trade_info[3] else None
-                    , unit_max = trade_info[3][-1] if trade_info[3] else None                
-                )
-
-        return True    
 #endregion
 
 #region TradeParameter_Static
-
     @staticmethod
     def get_info_duration(*, digit, unit):
         pattern = re.compile(r'^[123456789]+0*[tsmhd]{1}$', re.I)
@@ -241,8 +212,8 @@ class AssetIndex:
         if (not digit_min) and (not unit_min) and (not digit_max) and (not unit_max):
             return {}
 
-        min_info = AssetIndex.get_info_duration(digit=digit_min, unit=unit_min)
-        max_info = AssetIndex.get_info_duration(digit=digit_max, unit=unit_max)
+        min_info = AssetParameter.get_info_duration(digit=digit_min, unit=unit_min)
+        max_info = AssetParameter.get_info_duration(digit=digit_max, unit=unit_max)
         
         if (min_info and not max_info) or (max_info and not min_info):
             raise ValueError('Min e Max devem ter valores simultâneos válidos ou nulos.')
@@ -250,16 +221,13 @@ class AssetIndex:
         if min_info.get('key') > max_info.get('key'):
             raise ValueError('Min apresenta duração maior que Max.')
         
-        if min_info and max_info:
-            return {'min_info':min_info, 'max_info':max_info}
-        
-        raise ValueError(f'Erro não identificado para os valores de digit_min:{digit_min} unit_min:{unit_min} digit_max:{digit_max} unit_max:{unit_max}')
+        return {'min_info':min_info, 'max_info':max_info}
 #endregion
 
 class ActiveSymbol:
     _instances = []
     
-    def __new__(cls
+    def __new__(cls, *
                 , symbol
                 , display_name
                 , assets
@@ -267,26 +235,48 @@ class ActiveSymbol:
                 , is_trading_suspended
                 , market
                 , market_display_name
-                , subgroup
-                , subgroup_display_name
-                , submarket
+                , sub_market
                 , submarket_display_name):
         
         if (not check_str(symbol)):
             raise ValueError(f'String(s) inválida(s) ou nula(s) para symbol:{symbol}')
         
-        key = symbol
+        key = f'{not is_trading_suspended}{not exchange_is_open}{market}{sub_market}{symbol}'
         instance = cls.find(key)
+        srt_repr = f'{market_display_name if market_display_name else "":<16} {submarket_display_name if submarket_display_name else "":<19} {display_name}{"(XX)" if is_trading_suspended else ""} {"" if exchange_is_open else "(closed)"}'
         
         if not instance:
             instance = super().__new__(cls)
             instance._symbol = symbol
             instance._display_name = display_name
             instance._assets = assets
+            instance._exchange_is_open = exchange_is_open
+            instance._is_trading_suspended = is_trading_suspended
+            instance._market = market
+            instance._market_display_name = market_display_name
+            instance._sub_market = sub_market
+            instance._submarket_display_name = submarket_display_name
+            instance._key = key
+            instance._str_repr = srt_repr
+            cls._instances.append(instance)
+            
         return instance
+
+
+#region ActiveSymbol_InstancesMembers
+    def __str__(self):
+        return self._str_repr
     
-    
-    classmethod
+    def __repr__(self):
+        return self._str_repr
+#endregion
+
+#region ActiveSymbol_ClassMembers
+    @classmethod
+    def clear(cls):
+        cls._instances.clear()
+        
+    @classmethod
     def find(cls, key):
         instances = [inst for inst in cls._instances if inst._key == key]
 
@@ -297,37 +287,64 @@ class ActiveSymbol:
             raise ValueError(f'instances{instances} > ActiveSymbol_instances armazenou instâncias diferentes com mesmos valores.')
 
         return instances[0]
-    
-    
+
     @classmethod
-    def populate(cls, assets, symbols):
-        cls._instances.clear()
-        AssetIndex.clear()
+    def get_all(cls):
+        return sorted(cls._instances, key=lambda x: x._key)
+#endregion
+
+def populate(*, lst_active_symbols, lst_asset_index):
         
-        
+        symbols_dict = {}
 
-        if not assets:
-            print(f'Valores inválidos para key "asset_index" em response.')
-            return False
+        for asset_index in lst_asset_index:
+            symbol = asset_index[0]
+            display_name = asset_index[1]
+            lst_parameters = [AssetParameter(
+                group= parameter[0]
+                , modality= parameter[1] 
+                , digit_min= parameter[2][:-1] if parameter[2] else None
+                , unit_min= parameter[2][-1] if parameter[2] else None
+                , digit_max= parameter[3][:-1] if parameter[3] else None
+                , unit_max = parameter[3][-1] if parameter[3] else None) for parameter in asset_index[2]]
+            
+            sym_value_dict = symbols_dict.setdefault(symbol, {})
+            sym_value_dict.setdefault('display_name', display_name)
+            sym_value_dict.setdefault('assets_indexes', sorted(lst_parameters, key= lambda x: x._key))
 
-        pp(response)
+        for act_sym in lst_active_symbols:
+            value_dict = symbols_dict.get(symbol)
+            
+            if not value_dict:
+                raise ValueError(f'Não foi possível encontrar o symbol:{symbol} no dicionário de symbols_dict.')
+            
+            symbol = act_sym.get('symbol')
+            exchange_is_open = act_sym.get('exchange_is_open')
+            is_trading_suspended = act_sym.get('is_trading_suspended')
+            market = act_sym.get('market')
+            market_display_name = act_sym.get('market_display_name')
+            sub_market = act_sym.get('sub_market')
+            submarket_display_name = act_sym.get('submarket_display_name')
+            
+            value_dict.setdefault('exchange_is_open', exchange_is_open)
+            value_dict.setdefault('is_trading_suspended', is_trading_suspended)
+            value_dict.setdefault('market', market)
+            value_dict.setdefault('market_display_name', market_display_name)
+            value_dict.setdefault('sub_market', sub_market)
+            value_dict.setdefault('submarket_display_name', submarket_display_name)
+            
+        for symbol, value_dict in symbols_dict.items():
+            ActiveSymbol(
+                symbol= symbol
+                , display_name= value_dict.get('display_name')
+                , assets= value_dict.get('assets_indexes')
+                , exchange_is_open= value_dict.get('exchange_is_open')
+                , is_trading_suspended= value_dict.get('is_trading_suspended')
+                , market= value_dict.get('market')
+                , market_display_name= value_dict.get('market_display_name')
+                , sub_market= value_dict.get('sub_market')
+                , submarket_display_name= value_dict.get('submarket_display_name'))
 
-        for asset in assets:
-            symbol = asset[0]
-            display_name = asset[1]
-            param_trades = asset[2]
-            for trade_info in param_trades:
-                tp = AssetIndex(
-                    group = trade_info[0]
-                    , modality = trade_info[1]
-                    , digit_min = trade_info[2][:-1] if trade_info[2] else None
-                    , unit_min = trade_info[2][-1] if trade_info[2] else None
-                    , digit_max = trade_info[3][:-1] if trade_info[3] else None
-                    , unit_max = trade_info[3][-1] if trade_info[3] else None                
-                )
-
-        return True    
-    
 def set_connection() -> ConnManager:
     app_name = AppDashboard.get_key_names().get('app')[0]
     token_name = AppDashboard.get_key_names().get('token')[0]
@@ -336,42 +353,46 @@ def set_connection() -> ConnManager:
     else:
         raise ValueError(f'app_name:{app_name} ou token_name{token_name} inválido.')
 
-def show_Asset_methods():
+def show_AssetParameter_methods():
     #line(Asset.find(group="callput", modality="Higher/Lower", min_max_info= Asset.get_min_max_info(digit_min='5', unit_min='t', digit_max='7' unit_max='d')))
-    line('AssetIndex.get_all()')
-    line('AssetIndex.find("callputHigher/Lower400001400365")')
-    line('AssetIndex.get_by_group("put")')
-    line('AssetIndex.get_by_group("callput", restricted=True)')
-    line('AssetIndex.get_by_modality("Rise/Fall")')
-    line('AssetIndex.get_by_modality("Rise/Fall", restricted=True)')
-    # line('AssetIndex.get_by_symbol("WLDAUD")')
-    line('AssetIndex.get_by_duration(digit = "7", unit ="t")')
-    line('AssetIndex.get_by_duration(digit = "45", unit ="h", fit_in_units=False)')
-    line('AssetIndex.get_groups()')
-    line('AssetIndex.get_modalities()')
-    # line('AssetIndex.get_symbols()')
-    # line('AssetIndex.get_symbols(display_name= False)')
-    # line('AssetIndex.get_symbols_by_group("reset")')
-    # line('AssetIndex.get_symbols_by_modality("equal")')
-    # line('AssetIndex.get_symbols_by_modality("equal",restricted=False)')
-    # line('AssetIndex.get_symbols_by_display_name("AUD")')
+    line('AssetParameter.get_all()')
+    line('AssetParameter.find("callputHigher/Lower400001400365")')
+    line('AssetParameter.get_by_group("put")')
+    line('AssetParameter.get_by_group("callput", restricted=True)')
+    line('AssetParameter.get_by_modality("Rise/Fall")')
+    line('AssetParameter.get_by_modality("Rise/Fall", restricted=True)')
+    # line('AssetParameter.get_by_symbol("WLDAUD")')
+    line('AssetParameter.get_by_duration(digit = "7", unit ="t")')
+    line('AssetParameter.get_by_duration(digit = "45", unit ="h", fit_in_units=False)')
+    line('AssetParameter.get_groups()')
+    line('AssetParameter.get_modalities()')
+    # line('AssetParameter.get_symbols()')
+    # line('AssetParameter.get_symbols(display_name= False)')
+    # line('AssetParameter.get_symbols_by_group("reset")')
+    # line('AssetParameter.get_symbols_by_modality("equal")')
+    # line('AssetParameter.get_symbols_by_modality("equal",restricted=False)')
+    # line('AssetParameter.get_symbols_by_display_name("AUD")')
     print()
+
+def show_ActiveSymbol_methods():
+    line('ActiveSymbol.get_all()')
+    line('ActiveSymbol.find("WLDAUD")')
 
 async def main():
     conn = set_connection()
     await conn.connect()
-    response_asset_index = await conn.send_request(req.ASSET_INDEX)
-    response_active_symbols = await conn.send_request(req.ACTIVE_SYMBOLS)
+    resp_asset_index = await conn.send_request(req.ASSET_INDEX)
+    resp_active_symbols = await conn.send_request(req.ACTIVE_SYMBOLS)
     
-    if response_asset_index and response_active_symbols:
-        assets = response_asset_index.get('asset_index')
-        active_symbols = response_active_symbols.get('active_symbols')
+    if resp_asset_index and resp_active_symbols:
+        lst_asset_index = resp_asset_index.get('asset_index')
+        lst_active_symbols = resp_active_symbols.get('active_symbols')
         
-        if assets and active_symbols:
-            
-        
-    await AssetIndex.populate(conn)
-    show_Asset_methods()
+        if lst_asset_index and lst_active_symbols:
+            AssetParameter.clear()
+            ActiveSymbol.clear()
+            populate(lst_active_symbols= lst_active_symbols, lst_asset_index= lst_asset_index)
+            show_ActiveSymbol_methods()
     await conn.disconnect()
 
 if __name__ == '__main__':
