@@ -55,7 +55,7 @@ class AssetParameter:
             srt_repr = srt_repr + f' {min_duration:>3} {max_duration:>4}'
             has_duration = True
         
-        instance = AssetParameter.find(key)
+        instance = AssetParameter.find(key, only_key=True)
 
         if not instance:
             instance = super().__new__(cls)
@@ -116,16 +116,25 @@ class AssetParameter:
         cls._instances.clear()
         
     @classmethod
-    def find(cls, key):
-        instances = [inst for inst in cls._instances if inst._key == key]
-
-        if not instances:
-            return None
-
-        if 1 < len(instances):
-            raise ValueError(f'instances{instances} > Asset_instances armazenou instâncias diferentes com mesmos valores.')
-
-        return instances[0]
+    def find(cls, value, only_key=False):
+        if only_key:
+            insts = [inst for inst in cls._instances if inst._key == value]
+            if not insts:
+                return None
+            if len(insts) > 1:
+                raise ValueError(f"Múltiplas instâncias encontradas para a chave fornecida: {insts}")
+            return insts[0]
+        else:
+            # Tenta por key primeiro
+            insts = [inst for inst in cls._instances if inst._key == value]
+            if not insts:
+                # Tenta por str_repr com regex
+                pattern = re.compile(value, re.I)
+                insts = [inst for inst in cls._instances if pattern.search(inst._str_repr)]
+            if not insts:
+                # Tenta por group ou modality
+                insts = [inst for inst in cls._instances if value in inst._group or value in inst._modality]
+            return insts  # Retorna a lista, mesmo que vazia ou com múltiplos itens
 
     @classmethod
     def get_all(cls):
@@ -371,7 +380,9 @@ def set_connection() -> ConnManager:
 def show_AssetParameter_methods():
     #line(Asset.find(group="callput", modality="Higher/Lower", min_max_info= Asset.get_min_max_info(digit_min='5', unit_min='t', digit_max='7' unit_max='d')))
     line('AssetParameter.get_all()')
-    line('AssetParameter.find("callputHigher/Lower400001400365")')
+    line('AssetParameter.find("callputHigher/Lower400001400365", only_key= True)')
+    line('AssetParameter.find("put")')
+    line('AssetParameter.find("fall")')
     line('AssetParameter.get_by_group("put")')
     line('AssetParameter.get_by_group("callput", restricted=True)')
     line('AssetParameter.get_by_modality("Rise/Fall")')
@@ -409,7 +420,8 @@ async def main():
             AssetParameter.clear()
             ActiveSymbol.clear()
             populate(lst_active_symbols= lst_active_symbols, lst_asset_index= lst_asset_index)
-            show_ActiveSymbol_methods()
+            show_AssetParameter_methods()
+            #show_ActiveSymbol_methods()
     await conn.disconnect()
 
 if __name__ == '__main__':
