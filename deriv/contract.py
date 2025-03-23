@@ -230,7 +230,7 @@ class ActiveSymbol:
     def __new__(cls, *
                 , symbol
                 , display_name
-                , assets
+                , parameters
                 , exchange_is_open
                 , is_trading_suspended
                 , market
@@ -249,7 +249,7 @@ class ActiveSymbol:
             instance = super().__new__(cls)
             instance._symbol = symbol
             instance._display_name = display_name
-            instance._assets = assets
+            instance._parameters =  [p for p in sorted(parameters, key= lambda x: x.key)]
             instance._exchange_is_open = exchange_is_open
             instance._is_trading_suspended = is_trading_suspended
             instance._market = market
@@ -264,6 +264,7 @@ class ActiveSymbol:
 
 
 #region ActiveSymbol_InstancesMembers
+    
     def __str__(self):
         return self._str_repr
     
@@ -289,8 +290,13 @@ class ActiveSymbol:
         return instances[0]
 
     @classmethod
-    def get_all(cls):
-        return sorted(cls._instances, key=lambda x: x._key)
+    def get_all(cls,*, parameters = False):
+        insts = sorted(cls._instances, key=lambda x: x._key)
+        
+        if parameters:
+            return  [(inst, inst._parameters) for inst in insts]
+
+        return insts
 #endregion
 
 def populate(*, lst_active_symbols, lst_asset_index):
@@ -337,7 +343,7 @@ def populate(*, lst_active_symbols, lst_asset_index):
             ActiveSymbol(
                 symbol= symbol
                 , display_name= value_dict.get('display_name')
-                , assets= value_dict.get('assets_indexes')
+                , parameters= value_dict.get('assets_indexes')
                 , exchange_is_open= value_dict.get('exchange_is_open')
                 , is_trading_suspended= value_dict.get('is_trading_suspended')
                 , market= value_dict.get('market')
@@ -375,7 +381,7 @@ def show_AssetParameter_methods():
     print()
 
 def show_ActiveSymbol_methods():
-    line('ActiveSymbol.get_all()')
+    line('ActiveSymbol.get_all(parameters= True)')
     line('ActiveSymbol.find("WLDAUD")')
 
 async def main():
