@@ -296,15 +296,18 @@ class ActiveSymbol:
                 raise ValueError(f"Múltiplas instâncias encontradas para a chave fornecida: {insts}")
             return insts[0]
         else:
-            # Tenta por key primeiro
-            insts = [inst for inst in cls._instances if inst._key == value]
+            # Tenta por symbol primeiro
+            insts = [inst for inst in cls._instances if inst._symbol == value]
             if not insts:
-                # Tenta por display_name com regex
+                # Tenta por str_repr com regex
                 pattern = re.compile(value, re.I)
-                insts = [inst for inst in cls._instances if pattern.search(inst._display_name)]
+                insts = [inst for inst in cls._instances if pattern.search(inst._str_repr)]
             if not insts:
-                # Tenta por symbol por último
-                insts = [inst for inst in cls._instances if inst._symbol == value]
+                # Tenta por market_display_name ou submarket_display_name
+                insts = [inst for inst in cls._instances if value in (inst._market_display_name or '') or value in (inst._submarket_display_name or '')]
+            if not insts:
+                # Tenta por key por último
+                insts = [inst for inst in cls._instances if inst._key == value]
             return insts  # Retorna a lista, mesmo que vazia ou com múltiplos itens
         
     @classmethod
@@ -404,6 +407,7 @@ def show_ActiveSymbol_methods():
     line('ActiveSymbol.get_all(parameters= True)')
     line('ActiveSymbol.find("WLDAUD", only_key= False)')
     line('ActiveSymbol.find("AUD")')
+    line('ActiveSymbol.find("basket")')
 
 async def main():
     conn = set_connection()
@@ -420,8 +424,8 @@ async def main():
             AssetParameter.clear()
             ActiveSymbol.clear()
             populate(lst_active_symbols= lst_active_symbols, lst_asset_index= lst_asset_index)
-            show_AssetParameter_methods()
-            #show_ActiveSymbol_methods()
+            #show_AssetParameter_methods()
+            show_ActiveSymbol_methods()
     await conn.disconnect()
 
 if __name__ == '__main__':
