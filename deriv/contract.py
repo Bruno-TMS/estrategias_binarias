@@ -243,7 +243,7 @@ class ActiveSymbol:
         
         key = f'{not is_trading_suspended}{not exchange_is_open}{market}{sub_market}{symbol}'
         instance = cls.find(key)
-        srt_repr = f'{market_display_name if market_display_name else "":<16} {submarket_display_name if submarket_display_name else "":<19} {display_name}{"(XX)" if is_trading_suspended else ""} {"" if exchange_is_open else "(closed)"}'
+        srt_repr = f'{market_display_name if market_display_name else "":<16} {submarket_display_name if submarket_display_name else "":<19} {display_name}{"(XX)" if is_trading_suspended else ""} {"" if exchange_is_open else " — closed":>10}'
         
         if not instance:
             instance = super().__new__(cls)
@@ -279,15 +279,15 @@ class ActiveSymbol:
         
     @classmethod
     def find(cls, key):
-        instances = [inst for inst in cls._instances if inst._key == key]
+        insts = [inst for inst in cls._instances if inst._key == key]
 
-        if not instances:
+        if not insts:
             return None
 
-        if 1 < len(instances):
-            raise ValueError(f'instances{instances} > ActiveSymbol_instances armazenou instâncias diferentes com mesmos valores.')
+        if 1 < len(insts):
+            raise ValueError(f'instances{insts} > ActiveSymbol_instances armazenou instâncias diferentes com mesmos valores.')
 
-        return instances[0]
+        return insts[0]
 
     @classmethod
     def get_all(cls,*, parameters = False):
