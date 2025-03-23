@@ -278,17 +278,26 @@ class ActiveSymbol:
         cls._instances.clear()
         
     @classmethod
-    def find(cls, key):
-        insts = [inst for inst in cls._instances if inst._key == key]
-
-        if not insts:
-            return None
-
-        if 1 < len(insts):
-            raise ValueError(f'instances{insts} > ActiveSymbol_instances armazenou instâncias diferentes com mesmos valores.')
-
-        return insts[0]
-
+    def find(cls, value, only_key=True):
+        if only_key:
+            insts = [inst for inst in cls._instances if inst._key == value]
+            if not insts:
+                return None
+            if len(insts) > 1:
+                raise ValueError(f"Múltiplas instâncias encontradas para a chave fornecida: {insts}")
+            return insts[0]
+        else:
+            # Tenta por key primeiro
+            insts = [inst for inst in cls._instances if inst._key == value]
+            if not insts:
+                # Tenta por display_name com regex
+                pattern = re.compile(value, re.I)
+                insts = [inst for inst in cls._instances if pattern.search(inst._display_name)]
+            if not insts:
+                # Tenta por symbol por último
+                insts = [inst for inst in cls._instances if inst._symbol == value]
+            return insts  # Retorna a lista, mesmo que vazia ou com múltiplos itens
+        
     @classmethod
     def get_all(cls,*, parameters = False):
         insts = sorted(cls._instances, key=lambda x: x._key)
@@ -382,7 +391,8 @@ def show_AssetParameter_methods():
 
 def show_ActiveSymbol_methods():
     line('ActiveSymbol.get_all(parameters= True)')
-    line('ActiveSymbol.find("WLDAUD")')
+    line('ActiveSymbol.find("WLDAUD", only_key= False)')
+    line('ActiveSymbol.find("AUD")')
 
 async def main():
     conn = set_connection()
