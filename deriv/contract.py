@@ -330,6 +330,15 @@ class ActiveSymbol:
         if not isinstance(instances, list):
             instances = [instances]  # Se for uma única instância, converte para lista
         return [(inst._symbol, inst.parameters) for inst in instances]
+   
+    @classmethod
+    def get_available_contracts(cls):
+        available = [
+            (inst._symbol, inst.parameters)
+            for inst in cls._instances
+            if inst._exchange_is_open and not inst._is_trading_suspended
+        ]
+        return sorted(available, key=lambda x: x[0])  # Ordena por symbol
 #endregion
 
 def populate(*, lst_active_symbols, lst_asset_index):
@@ -418,9 +427,10 @@ def show_AssetParameter_methods():
 def show_ActiveSymbol_methods():
     line('ActiveSymbol.get_all(parameters= True)')
     line('ActiveSymbol.find("WLDAUD", only_key= False)')
-    line('ActiveSymbol.find("AUD")')
+    line('ActiveSymbol.find("AUD", only_key= False)')
     line('ActiveSymbol.get_parameters_by_symbol("WLDAUD")')
     line('ActiveSymbol.get_parameters_by_symbol("AUD")')
+    line('ActiveSymbol.get_available_contracts()')
 
 async def main():
     conn = set_connection()
