@@ -273,6 +273,9 @@ class ActiveSymbol:
 
 
 #region ActiveSymbol_InstancesMembers
+    @property
+    def parameters(self):
+        return self._parameters
     
     def __str__(self):
         return self._str_repr
@@ -318,6 +321,15 @@ class ActiveSymbol:
             return  [(inst, inst._parameters) for inst in insts]
 
         return insts
+
+    @classmethod
+    def get_parameters_by_symbol(cls, symbol):
+        instances = cls.find(symbol, only_key=False)
+        if not instances:
+            return []
+        if not isinstance(instances, list):
+            instances = [instances]  # Se for uma única instância, converte para lista
+        return [(inst._symbol, inst.parameters) for inst in instances]
 #endregion
 
 def populate(*, lst_active_symbols, lst_asset_index):
@@ -407,7 +419,8 @@ def show_ActiveSymbol_methods():
     line('ActiveSymbol.get_all(parameters= True)')
     line('ActiveSymbol.find("WLDAUD", only_key= False)')
     line('ActiveSymbol.find("AUD")')
-    line('ActiveSymbol.find("basket")')
+    line('ActiveSymbol.get_parameters_by_symbol("WLDAUD")')
+    line('ActiveSymbol.get_parameters_by_symbol("AUD")')
 
 async def main():
     conn = set_connection()
