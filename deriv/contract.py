@@ -330,7 +330,17 @@ class ActiveSymbol:
         if not isinstance(instances, list):
             instances = [instances]  # Se for uma única instância, converte para lista
         return [(inst._symbol, inst.parameters) for inst in instances]
-   
+
+    @classmethod
+    def filter_contracts_by_type(cls, contract_type):
+        available = cls.get_available_contracts()
+        filtered = [
+            (symbol, [param for param in params if contract_type in param.modality])
+            for symbol, params in available
+            if any(contract_type in param.modality for param in params)
+        ]
+        return filtered
+    
     @classmethod
     def get_available_contracts(cls):
         available = [
@@ -431,6 +441,7 @@ def show_ActiveSymbol_methods():
     line('ActiveSymbol.get_parameters_by_symbol("WLDAUD")')
     line('ActiveSymbol.get_parameters_by_symbol("AUD")')
     line('ActiveSymbol.get_available_contracts()')
+    line('ActiveSymbol.filter_contracts_by_type("Higher/Lower")')
 
 async def main():
     conn = set_connection()
