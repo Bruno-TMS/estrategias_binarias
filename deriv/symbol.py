@@ -1,5 +1,6 @@
 import asyncio
 import re
+from functools import reduce
 from pprint import pprint as pp
 from util import check_str
 from connection import ConnManager, AppDashboard
@@ -10,15 +11,13 @@ def line(value: str):
     print(ln)
     result = eval(value)
 
-    if isinstance(result,list):
+    if isinstance(result, list):
         ln = len(result)
         print(f'{value} - show {5 if ln >=5 else ln} from: {ln}\n')
         pp(result[:5])
-
     else:
         print(f'{value}:\n')
         pp(result)
-
 
 class Asset:
     _instances = []
@@ -145,14 +144,14 @@ class Asset:
         return [inst._key for inst in sorted(cls._instances, key=lambda x: x._key)]
 
     @classmethod
-    def get_by_group(cls, group, *, restricted=False):
+    def get_by_group(cls, group, *, restrict=False):
         pattern = re.compile(group, flags=re.I)
-        return sorted([inst for inst in cls._instances if (pattern.search(inst._group) if not restricted else pattern.fullmatch(inst._group))], key=lambda x: x._key)
+        return sorted([inst for inst in cls._instances if (pattern.search(inst._group) if not restrict else pattern.fullmatch(inst._group))], key=lambda x: x._key)
 
     @classmethod
-    def get_by_modality(cls, modality, *, restricted=False):
+    def get_by_modality(cls, modality, *, restrict=False):
         pattern = re.compile(modality, flags=re.I)
-        return sorted([inst for inst in cls._instances if (pattern.search(inst.modality) if not restricted else pattern.fullmatch(inst.modality))], key=lambda x: x._key)
+        return sorted([inst for inst in cls._instances if (pattern.search(inst.modality) if not restrict else pattern.fullmatch(inst.modality))], key=lambda x: x._key)
 
     @classmethod
     def get_by_duration(cls, *, digit, unit, fit_in_units=True):
@@ -281,7 +280,7 @@ class ActiveSymbol:
     @classmethod
     def find(cls, **kwargs):
         kw_research = ['restrict']
-        kw_filter = ['parameters', 'exchange_is_open', 'is_trading_suspended']
+        kw_filter = ['assets', 'exchange_is_open', 'is_trading_suspended']
         kw_prop = ['key', 'symbol', 'display_name', 'market', 'market_display_name', 'sub_market', 'submarket_display_name']
 
         instances = sorted(cls._instances, key=lambda x: x._key)
@@ -306,64 +305,45 @@ class ActiveSymbol:
             raise ValueError(f'Valores inválidos para propriedades: {args_props}, deve ser string.')
 
         if values_as_all := {k: v for k, v in args_props.items() if v == 'all'}:
-            if count_values_all := list(values_as_all.keys()) and len(count_values_all) > 1:
-                raise ValueError(f'A busca de instâncias como "all" deve ser definida apenas para uma propriedade: {count_values_all}')
-
+            if count_values_as_all := list(values_as_all.keys()) and len(count_values_as_all) > 1:
+                raise ValueError(f'A busca de instâncias como "all" deve ser definida apenas para uma propriedade: {count_values_as_all}')
             if values_as_not_all := {v for v in args_props.values() if v != 'all'}:
                 raise ValueError(f'Busca de instâncias como "all" não pode ser combinada com outras propriedades: {values_as_not_all}')
-
             prop_key = list(values_as_all.keys())[0]
-            instances = [getattr(inst, f'_{prop_key}') for inst in instances]  # Ajuste para usar atributo interno
-
+            instances = [getattr(inst, f'_{prop_key}') for inst in instances]
         else:
             research_arg = args_research.get('restrict', False)
             key_arg = args_props.get('key')
-            symbol_arg = args_props.get('symbol')
-            display_name_arg = args_props.get('display_name')
-            market_arg = args_props.get('market')
-            market_display_name_arg = args_props.get('market_display_name')
-            sub_market_arg = args_props.get('sub_market')
-            submarket_display_name_arg = args_props.get('submarket_display_name')
 
-            if key_arg and (symbol_arg or display_name_arg or market_arg or market_display_name_arg or sub_market_arg or submarket_display_name_arg):
+            if key_arg and any(k in args_props for k in kw_prop if k != 'key'):
                 raise ValueError(f'Argumento key não pode ser combinado com outros argumentos de propriedades.')
 
             if key_arg:
                 instances = [inst for inst in instances if inst._key == key_arg]
                 if len(instances) > 1:
                     raise ValueError(f'Múltiplas instâncias encontradas para a chave fornecida: {key_arg}')
-                return instances
-            
             else:
-                # Use instances como base e filtre apenas se o argumento existir
-                if symbol_arg:
-                    instances = [inst for inst in instances if (inst._symbol == symbol_arg if not research_arg else re.search(symbol_arg, inst._symbol or '', re.I))]
+                instances = reduce(
+                    lambda acc, kv: [
+                        inst for inst in acc 
+                        if getattr(inst, f'_{kv[0]}') and (
+                            getattr(inst, f'_{kv[0]}') == kv[1] if not research_arg 
+                            else re.search(kv[1], getattr(inst, f'_{kv[0]}'), re.I)
+                        )
+                    ],
+                    args_props.items(),
+                    instances
+                )
                 
-                if display_name_arg:
-                    instances = [inst for inst in instances if (inst._display_name == display_name_arg if not research_arg else re.search(display_name_arg, inst._display_name or '', re.I))]
-                
-                if market_arg:
-                    instances = [inst for inst in instances if (inst._market == market_arg if not research_arg else re.search(market_arg, inst._market or '', re.I))]
-                
-                if market_display_name_arg:
-                    instances = [inst for inst in instances if (inst._market_display_name == market_display_name_arg if not research_arg else re.search(market_display_name_arg, inst._market_display_name or '', re.I))]
-                
-                if sub_market_arg:
-                    instances = [inst for inst in instances if (inst._sub_market == sub_market_arg if not research_arg else re.search(sub_market_arg, inst._sub_market or '', re.I))]
-                
-                if submarket_display_name_arg:
-                    instances = [inst for inst in instances if (inst._submarket_display_name == submarket_display_name_arg if not research_arg else re.search(submarket_display_name_arg, inst._submarket_display_name or '', re.I))]
-                
-                # Aplica filtros booleanos
-                for kw_filter, value in args_filters.items():
-                    if kw_filter == 'is_trading_suspended':
-                        instances = [inst for inst in instances if inst._is_trading_suspended == value]
-                    if kw_filter == 'exchange_is_open':
-                        instances = [inst for inst in instances if inst._exchange_is_open == value]
-                    if kw_filter == 'parameters':
-                        instances = [(inst, inst._assets) for inst in instances]
+            for kw_filter, value in args_filters.items():
+                if kw_filter == 'is_trading_suspended':
+                    instances = [inst for inst in instances if inst._is_trading_suspended == value]
+                if kw_filter == 'exchange_is_open':
+                    instances = [inst for inst in instances if inst._exchange_is_open == value]
+                if kw_filter == 'assets':
+                    instances = [(inst, inst._assets) for inst in instances]
 
-                return instances
+            return instances
 
     @classmethod
     def get_available_symbols(cls):
@@ -371,23 +351,18 @@ class ActiveSymbol:
     
     @classmethod
     def get_assets_by_symbol(cls, symbol):
-        return [[inst, [inst._assets]] for inst in cls._instances]
+        return [[inst, inst._assets] for inst in cls._instances if inst._symbol == symbol]
 
     @classmethod
-    def filter_symbols_by_type(cls, contract_type):
-        keys_from_assets = [asset_index.key for asset_index in Asset.get_by_modality(modality=contract_type, restricted=False)]
-        
-        return [[inst,[asset for asset in inst if asset.key in keys_from_assets]] for inst in cls._instances if any([asset for asset in inst if asset.key in keys_from_assets])]
-
+    def filter_symbols_by_type(cls, contract_type, restrict=False):
+        keys_from_assets = [asset_index.key for asset_index in Asset.get_by_modality(modality=contract_type, restrict=restrict)]
+        return [[inst, [asset for asset in inst if asset.key in keys_from_assets]] for inst in cls._instances if any(asset.key in keys_from_assets for asset in inst)]
 
     @classmethod
     def get_symbols_by_duration(cls, digit, unit, fit_in_units=True):
         keys_from_assets = [asset_index.key for asset_index in Asset.get_by_duration(digit=digit, unit=unit, fit_in_units=fit_in_units)]
-        
-        return [[inst,[asset for asset in inst if asset.key in keys_from_assets]] for inst in cls._instances if any([asset for asset in inst if asset.key in keys_from_assets])]
-        
+        return [[inst, [asset for asset in inst if asset.key in keys_from_assets]] for inst in cls._instances if any(asset.key in keys_from_assets for asset in inst)]
     #endregion
-
 
 def populate(*, lst_active_symbols, lst_asset_index):
     symbols_dict = {}
@@ -405,7 +380,6 @@ def populate(*, lst_active_symbols, lst_asset_index):
         sym_value_dict = symbols_dict.setdefault(symbol, {})
         sym_value_dict.setdefault('display_name', display_name)
         sym_value_dict.setdefault('assets_indexes', sorted(lst_assets, key=lambda x: x._key))
-
 
     for act_sym in lst_active_symbols:
         symbol = act_sym.get('symbol')
@@ -427,7 +401,6 @@ def populate(*, lst_active_symbols, lst_asset_index):
         value_dict.setdefault('sub_market', sub_market)
         value_dict.setdefault('submarket_display_name', submarket_display_name)
 
-
     for symbol, value_dict in symbols_dict.items():
         ActiveSymbol(
             symbol=symbol,
@@ -440,7 +413,6 @@ def populate(*, lst_active_symbols, lst_asset_index):
             sub_market=value_dict.get('sub_market'),
             submarket_display_name=value_dict.get('submarket_display_name'))
 
-
 def set_connection() -> ConnManager:
     app_name = AppDashboard.get_key_names().get('app')[0]
     token_name = AppDashboard.get_key_names().get('token')[0]
@@ -449,27 +421,27 @@ def set_connection() -> ConnManager:
     else:
         raise ValueError(f'app_name:{app_name} ou token_name{token_name} inválido.')
 
-def show_AssetParameter_methods():
-    line('AssetParameter.get_all()')
-    line('AssetParameter.find("callputHigher/Lower400001400365", only_key=True)')
-    line('AssetParameter.find("put")')
-    line('AssetParameter.find("fall")')
-    line('AssetParameter.get_by_group("put")')
-    line('AssetParameter.get_by_group("callput", restricted=True)')
-    line('AssetParameter.get_by_modality("Rise/Fall")')
-    line('AssetParameter.get_by_modality("Rise/Fall", restricted=True)')
-    line('AssetParameter.get_by_duration(digit="7", unit="t")')
-    line('AssetParameter.get_by_duration(digit="45", unit="h", fit_in_units=False)')
-    line('AssetParameter.get_groups()')
-    line('AssetParameter.get_modalities()')
+def show_Asset_methods():
+    line('Asset.get_all()')
+    line('Asset.find("callputHigher/Lower400001400365", only_key=True)')
+    line('Asset.find("put")')
+    line('Asset.find("fall")')
+    line('Asset.get_by_group("put")')
+    line('Asset.get_by_group("callput", restrict=True)')
+    line('Asset.get_by_modality("Rise/Fall")')
+    line('Asset.get_by_modality("Rise/Fall", restrict=True)')
+    line('Asset.get_by_duration(digit="7", unit="t")')
+    line('Asset.get_by_duration(digit="45", unit="h", fit_in_units=False)')
+    line('Asset.get_groups()')
+    line('Asset.get_modalities()')
     print()
 
 def show_ActiveSymbol_methods():
-    line('ActiveSymbol.find()')  # Substitui get_all()
+    line('ActiveSymbol.find()')
     line('ActiveSymbol.find(symbol="WLDAUD")')
     line('ActiveSymbol.find(market_display_name="Forex", restrict=False)')
-    line('ActiveSymbol.find(symbol="WLDAUD", parameters=True)')  # Substitui get_assets_by_symbol
-    line('ActiveSymbol.find(exchange_is_open=True, is_trading_suspended=False, parameters=True)')  # Substitui get_available_contracts
+    line('ActiveSymbol.find(symbol="WLDAUD", assets=True)')
+    line('ActiveSymbol.find(exchange_is_open=True, is_trading_suspended=False, assets=True)')
     line('ActiveSymbol.filter_symbols_by_type("fall")')
     line('ActiveSymbol.get_symbols_by_duration("5", "t", fit_in_units=True)')
     line('ActiveSymbol.get_symbols_by_duration("1", "d", fit_in_units=False)')
@@ -488,7 +460,7 @@ async def main():
             ActiveSymbol.clear()
             populate(lst_active_symbols=lst_active_symbols, lst_asset_index=lst_asset_index)
             show_ActiveSymbol_methods()
-            # show_AssetParameter_methods()
+            # show_Asset_methods()
     await conn.disconnect()
 
 if __name__ == '__main__':
