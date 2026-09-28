@@ -1,1 +1,1 @@
-from . import deriv
+"""Pacote da API."""
