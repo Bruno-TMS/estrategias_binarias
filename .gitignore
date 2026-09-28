@@ -3,3 +3,4 @@ __pycache__/
 *.pyc
 deriv/knv.csv
 saida_terminal.txt
+.env
