@@ -1,4 +1,4 @@
-from app.services.deriv_service import DerivService
+from services.deriv_service import DerivService
 
 
 class DerivedBot:

@@ -26,7 +26,7 @@ class Settings(BaseSettings):
 
     # Configurações da Deriv API
     deriv_app_id: str = Field(
-        default="",
+        default="1089",
         description="ID do aplicativo registrado na Deriv API",
     )
     deriv_api_token: str = Field(
@@ -35,7 +35,7 @@ class Settings(BaseSettings):
         description="Token de autenticação da Deriv API",
     )
     deriv_ws_url: str = Field(
-        default="wss://ws.derivws.com/websockets/v3",
+        default="wss://api.derivws.com/trading/v1/options/ws/public",
         description="URL do WebSocket da Deriv API",
     )
 
