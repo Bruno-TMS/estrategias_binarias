@@ -7,11 +7,13 @@ from typing import Any
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel, Field
 
-from api.deps import get_deriv_service
+from api.deps import get_deriv_service, get_memory_service
+from deriv.ai_optimizer import AIOptimizer
 from deriv.analises_tecnicas import IchimokuIndicator
 from deriv.backtesting import BacktestEngine
 from deriv.trader_bot import DerivedBot
 from services.deriv_service import DerivService
+from services.memory_service import MemoryService
 
 logger = logging.getLogger(__name__)
 
@@ -402,21 +404,27 @@ async def backtest_ichimoku(
 async def auto_run_bot(
     payload: AutoRunRequest,
     service: DerivService = Depends(get_deriv_service),
+    memory_service: MemoryService = Depends(get_memory_service),
 ):
     """Executa o ciclo autônomo completo:
 
     1. Obtém ticks históricos reais do ativo via Deriv API.
-    2. Executa simulação e ranqueamento de estratégias Ichimoku em thread separada.
-    3. Valida os filtros de risco (min_win_rate e max_drawdown_limit) na melhor estratégia:
-       - Se violados: retorna status 'skipped' com detalhes das métricas insuficientes.
-    4. Se aprovada pelo risco:
+    2. Gera grid de 100 variações harmônicas via AIOptimizer e executa backtests em thread separada.
+    3. Avalia resultados com função objetivo multivariável e determina regime de mercado.
+    4. Persiste a recomendação do ciclo na memória histórica (SQLite).
+    5. Valida os filtros de risco (min_win_rate e max_drawdown_limit) na melhor estratégia.
+    6. Se aprovada pelo risco:
        - Instancia o DerivedBot com as travas de stop_loss e stop_win.
-       - Calcula o sinal atual do mercado (CALL, PUT ou NEUTRO) com a calibração vencedora.
-       - Se CALL ou PUT:
-           * dry_run=True: obtém cotação de proposta e retorna simulação aprovada.
-           * dry_run=False: executa proposta e compra real do contrato.
-       - Se NEUTRO: retorna status 'standby' aguardando formação de sinal direcional.
+       - Calcula o sinal atual do mercado com a calibração vencedora.
+       - Dispara proposta (dry_run=True) ou compra real (dry_run=False).
     """
+    from fastapi.params import Depends as DependsType
+
+    if isinstance(service, DependsType) or service is None:
+        service = get_deriv_service()
+    if isinstance(memory_service, DependsType) or memory_service is None:
+        memory_service = get_memory_service()
+
     if payload.count <= 0 or payload.count > 5000:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -433,7 +441,9 @@ async def auto_run_bot(
         if not prices:
             raise ValueError(f"Nenhum tick retornado para o ativo '{payload.symbol}'.")
 
-        # 2. Executar BacktestEngine.rank_strategies() via asyncio.to_thread
+        # 2. Gerar grid de 100 variações com física do Ichimoku e executar simulações
+        grid = AIOptimizer.generate_grid(max_combinations=100)
+
         engine = BacktestEngine(
             prices=prices,
             stake=payload.stake,
@@ -442,7 +452,7 @@ async def auto_run_bot(
 
         ranked = await asyncio.to_thread(
             engine.rank_strategies,
-            parameter_combinations=DEFAULT_ICHIMOKU_GRID,
+            parameter_combinations=grid,
             duration_ticks=payload.duration_ticks,
             indicator_cls=IchimokuIndicator,
             allow_overlap=False,
@@ -453,11 +463,19 @@ async def auto_run_bot(
                 "status": "skipped",
                 "message": "Nenhuma estratégia pôde ser calibrada no backtest.",
                 "best_strategy": None,
+                "composite_score": 0.0,
+                "regime_diagnosis": None,
+                "top_historical_strategies": [],
                 "market_signal": None,
                 "execution": None,
             }
 
-        best_strategy = ranked[0]
+        # 3. Avaliação multivariável e diagnóstico de regime de mercado
+        recommendation = AIOptimizer.evaluate_and_recommend(ranked, min_trades=10)
+        best_strategy = recommendation["strategy"] or ranked[0]
+        score = float(recommendation.get("score", 0.0))
+        regime_diagnosis = recommendation.get("regime_diagnosis", {})
+
         best_strategy_summary = {
             "win_rate": best_strategy["win_rate"],
             "max_drawdown": best_strategy["max_drawdown"],
@@ -468,7 +486,36 @@ async def auto_run_bot(
             "parameters": best_strategy["parameters"],
         }
 
-        # 3. Inspecionar a melhor estratégia contra os filtros de risco
+        # 4. Salvar recomendação do ciclo na base SQLite de forma segura
+        try:
+            memory_service.save_cycle_recommendation(
+                symbol=payload.symbol,
+                regime_diagnosis=regime_diagnosis,
+                best_strategy=best_strategy,
+                score=score,
+                ticks_count=len(prices),
+            )
+        except Exception as exc:
+            logger.warning("Falha ao salvar ciclo na memória SQLite: %s", exc)
+
+        # 5. Consultar histórico recente de estratégias vencedoras para o mesmo regime
+        top_historical: list[dict[str, Any]] = []
+        try:
+            current_regime = regime_diagnosis.get("regime", "")
+            if current_regime:
+                top_historical = memory_service.get_top_strategies_by_regime(
+                    symbol=payload.symbol,
+                    regime=current_regime,
+                    limit=5,
+                )
+        except Exception as exc:
+            logger.warning(
+                "Falha ao consultar histórico de estratégias para o regime %s: %s",
+                regime_diagnosis.get("regime"),
+                exc,
+            )
+
+        # 6. Inspecionar a melhor estratégia contra os filtros de risco
         if (
             best_strategy["win_rate"] < payload.min_win_rate
             or best_strategy["max_drawdown"] > payload.max_drawdown_limit
@@ -481,11 +528,14 @@ async def auto_run_bot(
                     f"Drawdown={best_strategy['max_drawdown']:.2f} (máximo tolerado: {payload.max_drawdown_limit:.2f})."
                 ),
                 "best_strategy": best_strategy_summary,
+                "composite_score": score,
+                "regime_diagnosis": regime_diagnosis,
+                "top_historical_strategies": top_historical,
                 "market_signal": None,
                 "execution": None,
             }
 
-        # 4. Estratégia aprovada pelo ranking de risco
+        # 7. Estratégia aprovada pelo ranking de risco
         # Instanciar DerivedBot com travas de risco
         bot = DerivedBot(
             service=service,
@@ -527,6 +577,9 @@ async def auto_run_bot(
                     "signal": current_signal,
                     "signal_metrics": signal_data.get("metrics"),
                     "best_strategy": best_strategy_summary,
+                    "composite_score": score,
+                    "regime_diagnosis": regime_diagnosis,
+                    "top_historical_strategies": top_historical,
                     "proposal": proposal,
                     "execution": None,
                 }
@@ -547,6 +600,9 @@ async def auto_run_bot(
                     "signal": current_signal,
                     "signal_metrics": signal_data.get("metrics"),
                     "best_strategy": best_strategy_summary,
+                    "composite_score": score,
+                    "regime_diagnosis": regime_diagnosis,
+                    "top_historical_strategies": top_historical,
                     "proposal": None,
                     "execution": trade_result,
                 }
@@ -562,6 +618,9 @@ async def auto_run_bot(
                 "signal": "NEUTRO",
                 "signal_metrics": signal_data.get("metrics"),
                 "best_strategy": best_strategy_summary,
+                "composite_score": score,
+                "regime_diagnosis": regime_diagnosis,
+                "top_historical_strategies": top_historical,
                 "proposal": None,
                 "execution": None,
             }

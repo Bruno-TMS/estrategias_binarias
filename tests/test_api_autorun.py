@@ -66,6 +66,9 @@ class TestApiAutoRunBot(unittest.IsolatedAsyncioTestCase):
         res = await auto_run_bot(req, service=mock_service)
         self.assertEqual(res["status"], "skipped")
         self.assertIn("rejeitada pelos filtros de risco", res["message"])
+        self.assertIn("regime_diagnosis", res)
+        self.assertIn("composite_score", res)
+        self.assertIn("top_historical_strategies", res)
         self.assertIsNone(res["execution"])
 
     async def test_auto_run_standby_on_neutral_market(self) -> None:
@@ -127,6 +130,10 @@ class TestApiAutoRunBot(unittest.IsolatedAsyncioTestCase):
         self.assertTrue(res["dry_run"])
         self.assertIsNotNone(res["proposal"])
         self.assertEqual(res["proposal"]["proposal_id"], "mock_prop_123")
+        self.assertIn("regime_diagnosis", res)
+        self.assertIn("composite_score", res)
+        self.assertIn("top_historical_strategies", res)
+        self.assertIsInstance(res["top_historical_strategies"], list)
 
     async def test_auto_run_real_trade_permission_error_maps_401(self) -> None:
         """Testa se PermissionError (falha de autenticação em ordem real) retorna HTTP 401."""
