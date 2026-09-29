@@ -38,6 +38,10 @@ class Settings(BaseSettings):
         default="wss://api.derivws.com/trading/v1/options/ws/public",
         description="URL do WebSocket da Deriv API",
     )
+    database_url: str = Field(
+        default="sqlite:///./trading_memory.db",
+        description="URL de conexão com o banco de dados SQLite local",
+    )
 
     @property
     def deriv_token(self) -> str:
