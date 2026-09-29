@@ -385,6 +385,108 @@ class DerivService:
             "epoch": int(tick.get("epoch", 0)),
         }
 
+    async def get_ticks_history(
+        self,
+        symbol: str,
+        count: int = 1000,
+        end: str = "latest",
+    ) -> dict[str, Any]:
+        """Obtém o histórico de ticks para um ativo específico.
+
+        Dispara o payload {'ticks_history': symbol, 'count': count, 'end': end, 'style': 'ticks'}
+        na Deriv API. Extrai e retorna uma lista ordenada de preços (quotes) e timestamps (epochs).
+
+        Retorna dicionário contendo:
+        - symbol: símbolo do ativo
+        - prices: lista de preços em formato float
+        - times: lista de timestamps em formato int (epoch)
+
+        Valida se o símbolo existe no catálogo em cache antes de disparar a requisição
+        e trata cenários de ativo suspenso ou histórico indisponível.
+        """
+        cleaned_symbol = symbol.strip() if symbol else ""
+        if not cleaned_symbol:
+            raise ValueError("O símbolo do ativo não pode ser vazio.")
+
+        if count <= 0:
+            raise ValueError("A quantidade de ticks (count) deve ser maior que zero.")
+
+        # 1. Valida se o símbolo existe no catálogo em cache
+        if not ActiveSymbol.get_all():
+            if not self.is_alive:
+                await self.connect()
+            await sync_symbols_cache(self)
+
+        existing = ActiveSymbol.find(symbol=cleaned_symbol)
+        if not existing:
+            # Tenta sincronizar novamente caso seja um ativo recém-adicionado
+            await sync_symbols_cache(self)
+            existing = ActiveSymbol.find(symbol=cleaned_symbol)
+            if not existing:
+                raise ValueError(
+                    f"Ativo '{cleaned_symbol}' não encontrado ou inválido no catálogo de símbolos."
+                )
+
+        inst = existing[0]
+        if inst.is_trading_suspended:
+            logger.warning(
+                f"O ativo '{cleaned_symbol}' está marcado como suspenso para negociação."
+            )
+
+        if not self.is_alive:
+            try:
+                await self.connect()
+            except Exception as exc:
+                raise RuntimeError(
+                    f"Serviço Deriv desconectado. Não foi possível restabelecer conexão: {exc}"
+                )
+
+        payload = {
+            "ticks_history": cleaned_symbol,
+            "count": int(count),
+            "end": str(end),
+            "style": "ticks",
+        }
+
+        response = await self.send(payload)
+
+        if "error" in response:
+            error_data = response["error"]
+            error_code = error_data.get("code")
+            error_msg = error_data.get("message", "Erro desconhecido")
+
+            if error_code in ("InvalidSymbol", "OfferingsInvalidSymbol"):
+                raise ValueError(
+                    f"Ativo '{cleaned_symbol}' não encontrado ou inválido na Deriv API: {error_msg}"
+                )
+            if error_code in ("MarketClosed", "TradingSuspended"):
+                raise RuntimeError(
+                    f"Histórico indisponível: mercado suspenso ou fechado para '{cleaned_symbol}': {error_msg}"
+                )
+
+            raise RuntimeError(
+                f"Erro ao consultar histórico de ticks para '{cleaned_symbol}': {error_msg}"
+            )
+
+        history = response.get("history")
+        if not history or not isinstance(history, dict):
+            raise RuntimeError(
+                f"Resposta inválida de histórico recebida para '{cleaned_symbol}': {response}"
+            )
+
+        raw_prices = history.get("prices", [])
+        raw_times = history.get("times", [])
+
+        # Garante a formatação e ordenação cronológica dos preços e epochs
+        formatted_prices = [float(p) for p in raw_prices]
+        formatted_times = [int(t) for t in raw_times]
+
+        return {
+            "symbol": cleaned_symbol,
+            "prices": formatted_prices,
+            "times": formatted_times,
+        }
+
     async def subscribe_ticks(
         self, symbol: str, callback: Callable[[Any], Any]
     ) -> Callable[[], Any]:
