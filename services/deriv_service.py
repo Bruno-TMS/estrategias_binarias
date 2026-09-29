@@ -1,12 +1,41 @@
 """Camada de serviço para operações da Deriv API."""
 
+import asyncio
+import inspect
 import logging
 from datetime import datetime, timezone
+from typing import Any, Callable
 
 from core.config import settings
 from deriv.conexao import DerivWebSocketClient
+from deriv.symbol import (
+    ActiveSymbol,
+    get_active_synthetic_symbols,
+    sync_symbols_cache,
+)
 
 logger = logging.getLogger(__name__)
+
+
+def _dispatch_callback(callback: Callable, tick_dict: dict) -> Any:
+    """Despacha o tick para o callback adaptando à assinatura fornecida."""
+    try:
+        sig = inspect.signature(callback)
+        params = list(sig.parameters.values())
+        if len(params) == 1:
+            param_name = params[0].name.lower()
+            if param_name in ("quote", "price", "preco", "valor"):
+                return callback(tick_dict.get("quote"))
+            return callback(tick_dict)
+        elif len(params) == 3:
+            return callback(
+                tick_dict.get("quote"),
+                tick_dict.get("epoch"),
+                tick_dict.get("symbol"),
+            )
+    except (ValueError, TypeError):
+        pass
+    return callback(tick_dict)
 
 
 class DerivService:
@@ -21,11 +50,24 @@ class DerivService:
             ws_url=settings.deriv_ws_url,
         )
         self.connected_at: datetime | None = None
+        self._latest_ticks: dict[str, dict] = {}
+        self._active_subscriptions: dict[str, dict[str, Any]] = {}
+
+        # Registra listener global para manter o cache do último tick atualizado
+        self.client.subscribe(self._on_stream_message)
 
     @property
     def is_alive(self) -> bool:
         """Verifica se a conexão WebSocket está ativa."""
         return self.client.is_alive
+
+    def _on_stream_message(self, data: dict) -> None:
+        """Atualiza o cache do tick mais recente a partir de qualquer mensagem de tick recebida."""
+        if data.get("msg_type") == "tick" and "tick" in data:
+            tick = data["tick"]
+            sym = tick.get("symbol")
+            if sym:
+                self._latest_ticks[sym] = tick
 
     async def connect(self) -> dict | None:
         """Estabelece a conexão e autorização com a Deriv API."""
@@ -93,6 +135,205 @@ class DerivService:
             "currency": currency,
         }
 
+    async def get_symbols(self, synthetic_only: bool = True) -> list[dict[str, Any]]:
+        """Retorna lista de ativos negociáveis utilizando o cache de deriv/symbol.py.
+
+        Caso o cache em memória esteja vazio, executa a sincronização assíncrona.
+        Por padrão, retorna os índices sintéticos abertos para negociação.
+        """
+        if not ActiveSymbol.get_all():
+            if not self.is_alive:
+                await self.connect()
+            await sync_symbols_cache(self)
+
+        if synthetic_only:
+            return get_active_synthetic_symbols()
+
+        return [
+            {
+                "symbol": inst.symbol,
+                "display_name": inst.display_name,
+                "market": inst.market,
+                "market_display_name": inst.market_display_name,
+                "sub_market": inst.sub_market,
+                "submarket_display_name": inst.submarket_display_name,
+            }
+            for inst in ActiveSymbol.get_available_symbols()
+        ]
+
+    async def sync_symbols(self) -> int:
+        """Força a sincronização do cache de símbolos da Deriv API."""
+        if not self.is_alive:
+            await self.connect()
+        return await sync_symbols_cache(self)
+
+    async def get_latest_tick(self, symbol: str) -> dict[str, Any]:
+        """Consulta a cotação mais recente disparando {'ticks': symbol}.
+
+        Retorna dicionário contendo quote, epoch e symbol.
+        Lança ValueError caso o ativo informado não exista.
+        """
+        cleaned_symbol = symbol.strip() if symbol else ""
+        if not cleaned_symbol:
+            raise ValueError("O símbolo do ativo não pode ser vazio.")
+
+        if not self.is_alive:
+            try:
+                await self.connect()
+            except Exception as exc:
+                raise RuntimeError(
+                    f"Serviço Deriv desconectado. Não foi possível restabelecer conexão: {exc}"
+                )
+
+        response = await self.send({"ticks": cleaned_symbol})
+
+        if "error" in response:
+            error_data = response["error"]
+            error_code = error_data.get("code")
+            error_msg = error_data.get("message", "Erro desconhecido")
+
+            # Se já estiver inscrito na stream do ativo, usa a cotação mais recente recebida
+            if error_code == "AlreadySubscribed" and cleaned_symbol in self._latest_ticks:
+                cached_tick = self._latest_ticks[cleaned_symbol]
+                return {
+                    "symbol": cached_tick.get("symbol", cleaned_symbol),
+                    "quote": float(cached_tick.get("quote", 0.0)),
+                    "epoch": int(cached_tick.get("epoch", 0)),
+                }
+
+            if error_code == "InvalidSymbol":
+                raise ValueError(
+                    f"Ativo '{cleaned_symbol}' não encontrado ou inválido na Deriv API."
+                )
+            raise RuntimeError(
+                f"Erro ao consultar cotação para '{cleaned_symbol}': {error_msg}"
+            )
+
+        tick = response.get("tick")
+        if not tick or not isinstance(tick, dict):
+            raise RuntimeError(
+                f"Resposta de tick não continha dados para '{cleaned_symbol}': {response}"
+            )
+
+        self._latest_ticks[cleaned_symbol] = tick
+
+        # Se não houver assinaturas ativas para este símbolo, encerra o stream temporário
+        sub_id = response.get("subscription", {}).get("id")
+        if sub_id and cleaned_symbol not in self._active_subscriptions:
+            try:
+                await self.send({"forget": sub_id})
+            except Exception as exc:
+                logger.debug(f"Erro ao esquecer subscrição temporária {sub_id}: {exc}")
+
+        return {
+            "symbol": tick.get("symbol", cleaned_symbol),
+            "quote": float(tick.get("quote", 0.0)),
+            "epoch": int(tick.get("epoch", 0)),
+        }
+
+    async def subscribe_ticks(
+        self, symbol: str, callback: Callable[[Any], Any]
+    ) -> Callable[[], Any]:
+        """Subscreve ao stream de ticks em tempo real para o ativo especificado.
+
+        Registra o listener de ticks no Singleton DerivWebSocketClient e envia
+        a requisição {'ticks': symbol, 'subscribe': 1}.
+        Lança ValueError caso o ativo informado não exista.
+        Retorna uma função assíncrona para cancelar a subscrição (unsubscribe).
+        """
+        cleaned_symbol = symbol.strip() if symbol else ""
+        if not cleaned_symbol:
+            raise ValueError("O símbolo do ativo não pode ser vazio.")
+
+        if not self.is_alive:
+            await self.connect()
+
+        def _tick_listener(data: dict) -> None:
+            if data.get("msg_type") == "tick" and "tick" in data:
+                tick_info = data["tick"]
+                if tick_info.get("symbol") == cleaned_symbol:
+                    payload = {
+                        "symbol": tick_info.get("symbol", cleaned_symbol),
+                        "quote": float(tick_info.get("quote", 0.0)),
+                        "epoch": int(tick_info.get("epoch", 0)),
+                        "ask": float(tick_info.get("ask", 0.0)) if "ask" in tick_info else None,
+                        "bid": float(tick_info.get("bid", 0.0)) if "bid" in tick_info else None,
+                        "pip_size": tick_info.get("pip_size"),
+                    }
+                    payload["tick"] = payload
+                    payload["msg_type"] = "tick"
+                    try:
+                        res = _dispatch_callback(callback, payload)
+                        if asyncio.iscoroutine(res):
+                            asyncio.create_task(res)
+                    except Exception as err:
+                        logger.warning(
+                            f"Erro no callback de tick para '{cleaned_symbol}': {err}"
+                        )
+
+        self.client.subscribe(_tick_listener)
+
+        sub_info = self._active_subscriptions.setdefault(
+            cleaned_symbol, {"subscribers": set(), "sub_id": None}
+        )
+        sub_info["subscribers"].add(_tick_listener)
+
+        # Se ainda não possui sub_id ativo, requisita a subscrição à Deriv
+        if sub_info["sub_id"] is None:
+            try:
+                response = await self.send({"ticks": cleaned_symbol, "subscribe": 1})
+                if "error" in response:
+                    error_data = response["error"]
+                    error_code = error_data.get("code")
+                    error_msg = error_data.get("message", "Erro desconhecido")
+
+                    if error_code == "AlreadySubscribed":
+                        logger.debug(
+                            f"Ativo '{cleaned_symbol}' já estava subscrito; mantendo listener registrado."
+                        )
+                    else:
+                        self.client.unsubscribe(_tick_listener)
+                        sub_info["subscribers"].discard(_tick_listener)
+                        if not sub_info["subscribers"]:
+                            self._active_subscriptions.pop(cleaned_symbol, None)
+
+                        if error_code == "InvalidSymbol":
+                            raise ValueError(
+                                f"Ativo '{cleaned_symbol}' não encontrado ou inválido na Deriv API."
+                            )
+                        raise RuntimeError(
+                            f"Erro ao subscrever ticks para '{cleaned_symbol}': {error_msg}"
+                        )
+                else:
+                    sub_info["sub_id"] = response.get("subscription", {}).get("id")
+                    if "tick" in response:
+                        self._latest_ticks[cleaned_symbol] = response["tick"]
+            except Exception:
+                self.client.unsubscribe(_tick_listener)
+                sub_info["subscribers"].discard(_tick_listener)
+                if not sub_info["subscribers"]:
+                    self._active_subscriptions.pop(cleaned_symbol, None)
+                raise
+
+        async def unsubscribe() -> None:
+            self.client.unsubscribe(_tick_listener)
+            current_sub = self._active_subscriptions.get(cleaned_symbol)
+            if current_sub:
+                current_sub["subscribers"].discard(_tick_listener)
+                if not current_sub["subscribers"]:
+                    sub_id_to_forget = current_sub.get("sub_id")
+                    self._active_subscriptions.pop(cleaned_symbol, None)
+                    if sub_id_to_forget and self.is_alive:
+                        try:
+                            await self.send({"forget": sub_id_to_forget})
+                        except Exception as exc:
+                            logger.debug(
+                                f"Erro ao cancelar subscrição {sub_id_to_forget}: {exc}"
+                            )
+
+        return unsubscribe
+
     def _reset(self) -> None:
         """Limpa estados internos ao desconectar."""
         self.connected_at = None
+        self._active_subscriptions.clear()
