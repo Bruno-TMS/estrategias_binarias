@@ -223,19 +223,40 @@ class Asset:
     # region TradeParameter_Static
     @staticmethod
     def get_info_duration(*, digit, unit):
-        if digit is None and unit is None:
+        if (digit is None or digit == "") and (unit is None or unit == ""):
             return {}
 
-        pattern = re.compile(r"^[123456789]+0*[tsmhd]{1}$", re.I)
-        if not pattern.fullmatch(duration := f"{digit}{unit}"):
-            raise ValueError(f"{digit}{unit} não é um duration válido.")
+        digit_str = str(digit).strip() if digit is not None else ""
+        unit_str = str(unit).strip() if unit is not None else ""
 
-        index = ["t", "s", "m", "h", "d"].index(unit)
-        key = f"{index}{digit.zfill(5)}"
-        digit = int(digit)
+        # Extrai unidade caso o dígito já a contenha embutida (ex: '10t')
+        if not unit_str and digit_str:
+            if match := re.match(r"^(\d+)([a-zA-Z]*)$", digit_str):
+                digit_str, unit_str = match.group(1), match.group(2)
+
+        if not digit_str and not unit_str:
+            return {}
+
+        # Unidades reconhecidas em ordem cronológica (ticks, seconds, minutes, hours, days, weeks, months, years)
+        known_units = ["t", "s", "m", "h", "d", "w", "M", "y"]
+
+        if unit_str in known_units:
+            index = known_units.index(unit_str)
+        elif unit_str.lower() in [u.lower() for u in known_units]:
+            index = [u.lower() for u in known_units].index(unit_str.lower())
+        elif not unit_str:
+            index = 0
+        else:
+            # Unidade desconhecida: atribui índice ordinal após as conhecidas de forma resiliente
+            index = len(known_units)
+
+        int_digit = int(digit_str) if digit_str.isdigit() else 0
+        duration = f"{digit_str}{unit_str}"
+        key = f"{index}{digit_str.zfill(5)}"
+
         return {
-            "digit": digit,
-            "unit": unit,
+            "digit": int_digit,
+            "unit": unit_str,
             "duration": duration,
             "index": index,
             "key": key,
@@ -248,9 +269,9 @@ class Asset:
         min_info = Asset.get_info_duration(digit=digit_min, unit=unit_min)
         max_info = Asset.get_info_duration(digit=digit_max, unit=unit_max)
         if (min_info and not max_info) or (max_info and not min_info):
-            raise ValueError("Min e Max devem ter valores simultâneos válidos ou nulos.")
-        if min_info.get("key") > max_info.get("key"):
-            raise ValueError("Min apresenta duração maior que Max.")
+            return {"min_info": min_info or max_info, "max_info": max_info or min_info}
+        if min_info and max_info and min_info.get("key") > max_info.get("key"):
+            return {"min_info": min_info, "max_info": max_info}
         return {"min_info": min_info, "max_info": max_info}
 
     # endregion

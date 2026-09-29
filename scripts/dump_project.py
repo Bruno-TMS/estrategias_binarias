@@ -2,6 +2,7 @@
 """Script utilitário para consolidar o código-fonte do projeto em um único arquivo."""
 
 from pathlib import Path
+from datetime import datetime
 
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
@@ -57,6 +58,7 @@ def generate_dump(output_path: Path = OUTPUT_FILE) -> int:
 
     with open(output_path, "w", encoding="utf-8") as out:
         out.write("================================================================================\n")
+        out.write(f'Documento criado em: {datetime.now().strftime("%d/%m/%Y %H:%M:%S")}\n\n')
         out.write(f"DUMP DO PROJETO - ESTRATÉGIAS BINÁRIAS\n")
         out.write(f"Total de arquivos incluídos: {total_files}\n")
         out.write("================================================================================\n\n")

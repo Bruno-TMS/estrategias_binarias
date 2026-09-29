@@ -38,6 +38,56 @@ def _dispatch_callback(callback: Callable, tick_dict: dict) -> Any:
     return callback(tick_dict)
 
 
+CONTRACT_TYPE_DISPLAY: dict[str, str] = {
+    # Call / Put
+    "CALL": "Higher / Rise",
+    "PUT": "Lower / Fall",
+    "CALLE": "Rise Equal",
+    "PUTE": "Fall Equal",
+    "HIGHER": "Higher",
+    "LOWER": "Lower",
+    # Touch / No Touch
+    "ONETOUCH": "Touch",
+    "NOTOUCH": "No Touch",
+    # Digits
+    "DIGITMATCH": "Matches",
+    "DIGITDIFF": "Differs",
+    "DIGITEVEN": "Even",
+    "DIGITODD": "Odd",
+    "DIGITOVER": "Over",
+    "DIGITUNDER": "Under",
+    # Asian
+    "ASIANU": "Asian Up",
+    "ASIAND": "Asian Down",
+    # In / Out
+    "EXPIRYMISS": "Ends Outside",
+    "EXPIRYMISSE": "Ends Outside",
+    "EXPIRYRANGE": "Ends Between",
+    "EXPIRYRANGEE": "Ends Between",
+    "RANGE": "Stays Between",
+    "UPORDOWN": "Goes Outside",
+    # Reset
+    "RESETCALL": "Reset Call",
+    "RESETPUT": "Reset Put",
+    # High / Low Ticks
+    "TICKHIGH": "High Tick",
+    "TICKLOW": "Low Tick",
+    # Runs
+    "RUNHIGH": "Only Ups",
+    "RUNLOW": "Only Downs",
+    # Accumulators & Multipliers
+    "ACCU": "Accumulator",
+    "MULTUP": "Multiplier Up",
+    "MULTDOWN": "Multiplier Down",
+    # Turbos
+    "TURBOSLONG": "Turbos Long",
+    "TURBOSSHORT": "Turbos Short",
+    # Vanillas
+    "VANILLALONGCALL": "Vanilla Call",
+    "VANILLALONGPUT": "Vanilla Put",
+}
+
+
 class DerivService:
     """Serviço de alto nível que consome o Singleton DerivWebSocketClient."""
 
@@ -166,6 +216,110 @@ class DerivService:
         if not self.is_alive:
             await self.connect()
         return await sync_symbols_cache(self)
+
+    async def get_contracts_for(self, symbol: str) -> list[dict[str, Any]]:
+        """Consulta os tipos de contratos e durações permitidas para o ativo informado.
+
+        Dispara requisição {'contracts_for': symbol} na Deriv API e retorna lista
+        estruturada contendo:
+        - contract_category
+        - contract_type
+        - contract_display
+        - min_contract_duration
+        - max_contract_duration
+
+        Valida previamente a existência do ativo no catálogo e trata
+        cenários de mercado fechado para determinados contratos.
+        """
+        cleaned_symbol = symbol.strip() if symbol else ""
+        if not cleaned_symbol:
+            raise ValueError("O símbolo do ativo não pode ser vazio.")
+
+        # Garante que o catálogo de símbolos esteja carregado
+        if not ActiveSymbol.get_all():
+            if not self.is_alive:
+                await self.connect()
+            await sync_symbols_cache(self)
+
+        # Valida se o símbolo existe no catálogo de símbolos
+        existing = ActiveSymbol.find(symbol=cleaned_symbol)
+        if not existing:
+            # Tenta sincronizar uma vez caso seja um ativo recém-adicionado
+            await sync_symbols_cache(self)
+            existing = ActiveSymbol.find(symbol=cleaned_symbol)
+            if not existing:
+                raise ValueError(
+                    f"Ativo '{cleaned_symbol}' não encontrado ou inválido."
+                )
+
+        if not self.is_alive:
+            try:
+                await self.connect()
+            except Exception as exc:
+                raise RuntimeError(
+                    f"Serviço Deriv desconectado. Não foi possível restabelecer conexão: {exc}"
+                )
+
+        response = await self.send({"contracts_for": cleaned_symbol})
+
+        if "error" in response:
+            error_data = response["error"]
+            error_code = error_data.get("code")
+            error_msg = error_data.get("message", "Erro desconhecido")
+
+            # Trata retornos em que o mercado está fechado ou sem contratos ofertados no momento
+            if error_code in ("MarketClosed", "TradingSuspended") or "closed" in error_msg.lower():
+                logger.info(
+                    f"Mercado fechado para contratos do ativo '{cleaned_symbol}': {error_msg}"
+                )
+                return []
+
+            if error_code == "OfferingsInvalidSymbol":
+                logger.info(
+                    f"Nenhum contrato disponível no momento para '{cleaned_symbol}' (mercado fechado ou sem ofertas): {error_msg}"
+                )
+                return []
+
+            if error_code == "InvalidSymbol":
+                raise ValueError(
+                    f"Ativo '{cleaned_symbol}' não encontrado ou inválido na Deriv API."
+                )
+
+            raise RuntimeError(
+                f"Erro ao consultar contratos para '{cleaned_symbol}': {error_msg}"
+            )
+
+        cf_data = response.get("contracts_for", {})
+        available_contracts = cf_data.get("available", [])
+
+        if not available_contracts:
+            logger.info(
+                f"Nenhum contrato disponível para o ativo '{cleaned_symbol}' no momento."
+            )
+            return []
+
+        formatted_contracts: list[dict[str, Any]] = []
+        for c in available_contracts:
+            contract_type = c.get("contract_type", "")
+            contract_category = c.get("contract_category", "")
+            contract_display = (
+                c.get("contract_display")
+                or c.get("contract_display_name")
+                or CONTRACT_TYPE_DISPLAY.get(contract_type)
+                or contract_type
+            )
+            min_duration = c.get("min_contract_duration")
+            max_duration = c.get("max_contract_duration")
+
+            formatted_contracts.append({
+                "contract_category": contract_category,
+                "contract_type": contract_type,
+                "contract_display": contract_display,
+                "min_contract_duration": min_duration,
+                "max_contract_duration": max_duration,
+            })
+
+        return formatted_contracts
 
     async def get_latest_tick(self, symbol: str) -> dict[str, Any]:
         """Consulta a cotação mais recente disparando {'ticks': symbol}.
