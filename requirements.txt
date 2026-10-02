@@ -8,3 +8,4 @@ aiohttp>=3.9.3
 python-dotenv>=1.0.1
 loguru>=0.7.2
 numpy>=1.26.0
+flet>=0.28.0

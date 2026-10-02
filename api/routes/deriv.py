@@ -165,6 +165,35 @@ async def get_balance(service: DerivService = Depends(get_deriv_service)):
         )
 
 
+@router.get("/auth/verify", summary="Verificar autenticação da conta Deriv")
+async def verify_auth(service: DerivService = Depends(get_deriv_service)):
+    """Verifica as credenciais configuradas na Deriv API executando a chamada authorize."""
+    try:
+        auth_data = await service.authorize()
+        return {
+            "status": "success",
+            "data": auth_data,
+        }
+    except PermissionError as exc:
+        logger.warning(f"Falha de autenticação ao verificar credenciais: {exc}")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail=str(exc),
+        )
+    except (RuntimeError, ConnectionError) as exc:
+        logger.error(f"Erro de conexão ao verificar autenticação Deriv: {exc}")
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=str(exc),
+        )
+    except Exception as exc:
+        logger.error(f"Erro inesperado no endpoint de verificação de autenticação: {exc}")
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Serviço Deriv temporariamente indisponível.",
+        )
+
+
 @router.get("/symbols", summary="Listar ativos disponíveis")
 async def get_symbols(
     synthetic_only: bool = Query(

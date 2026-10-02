@@ -185,6 +185,40 @@ class DerivService:
             "currency": currency,
         }
 
+    async def authorize(self, token: str | None = None) -> dict[str, Any]:
+        """Executa a autorização da conta na Deriv API usando o token informado ou das configurações."""
+        auth_token = token or self.token
+        if not auth_token or not auth_token.strip():
+            raise PermissionError("Autenticação necessária: token não configurado ou vazio.")
+
+        if not self.is_alive:
+            await self.connect()
+
+        response = await self.send({"authorize": auth_token.strip()})
+
+        if "error" in response:
+            err = response["error"]
+            err_msg = err.get("message", "Falha de autenticação na Deriv API.")
+            raise PermissionError(f"Falha de autenticação na Deriv API: {err_msg}")
+
+        auth_data = response.get("authorize", {})
+        loginid = auth_data.get("loginid", "")
+        is_virtual = bool(auth_data.get("is_virtual", 0))
+        balance = float(auth_data.get("balance", 0.0))
+        currency = str(auth_data.get("currency", "USD"))
+        email = auth_data.get("email")
+        scopes = auth_data.get("scopes", [])
+
+        return {
+            "loginid": loginid,
+            "is_virtual": is_virtual,
+            "account_type": "Demo (Virtual)" if is_virtual else "Real",
+            "balance": balance,
+            "currency": currency,
+            "email": email,
+            "scopes": scopes,
+        }
+
     async def get_symbols(self, synthetic_only: bool = True) -> list[dict[str, Any]]:
         """Retorna lista de ativos negociáveis utilizando o cache de deriv/symbol.py.
 
