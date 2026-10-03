@@ -180,6 +180,26 @@ class DerivApiClient:
             memory_service=memory_service,
         )
 
+    async def subscribe_ticks(
+        self, symbol: str, callback: Any
+    ) -> Any:
+        """Subscreve ao stream WebSocket de ticks em tempo real."""
+        from api.deps import deriv_service
+
+        return await deriv_service.subscribe_ticks(symbol=symbol, callback=callback)
+
+    async def unsubscribe_ticks(self, symbol: str) -> None:
+        """Cancela a subscrição de ticks do ativo especificado via forget."""
+        from api.deps import deriv_service
+
+        await deriv_service.unsubscribe_ticks(symbol=symbol)
+
+    async def unsubscribe_all_ticks(self) -> None:
+        """Cancela todas as subscrições ativas de ticks."""
+        from api.deps import deriv_service
+
+        await deriv_service.unsubscribe_all_ticks()
+
 
 async def main(page: ft.Page) -> None:
     """Função principal da interface gráfica Flet."""
@@ -203,6 +223,10 @@ async def main(page: ft.Page) -> None:
         "selected_symbol": "1HZ100V",
         "symbols_list": [],
         "last_quote": 0.0,
+        "live_stream_active": True,
+        "recent_ticks": [],
+        "tick_diff": 0.0,
+        "tick_diff_pct": 0.0,
         "polling_active": False,
         "session_cycles": 0,
         "session_profit": 0.0,
@@ -329,6 +353,173 @@ async def main(page: ft.Page) -> None:
     dash_backend_subtext = ft.Text("SQLite: trading_memory.db", size=12, color=ft.Colors.GREY_400)
     dash_session_profit_text = ft.Text("USD +0.00", size=20, weight=ft.FontWeight.BOLD, color=ft.Colors.WHITE)
     dash_session_subtext = ft.Text("0 ciclos | 0W - 0L", size=12, color=ft.Colors.GREY_400)
+
+    # Controles do Monitor de Ticks em Tempo Real (Dashboard)
+    dash_live_symbol_chip = ft.Chip(
+        label=ft.Text("1HZ100V", weight=ft.FontWeight.BOLD),
+        bgcolor=ft.Colors.CYAN_900,
+    )
+    dash_live_status_badge = ft.Container(
+        content=ft.Text("● AO VIVO (WebSocket)", size=10, weight=ft.FontWeight.BOLD, color=ft.Colors.GREEN_200),
+        bgcolor=ft.Colors.GREEN_900,
+        border_radius=4,
+        padding=ft.padding.Padding(6, 2, 6, 2),
+    )
+    dash_live_price_text = ft.Text(
+        "--.----",
+        size=28,
+        weight=ft.FontWeight.BOLD,
+        color=ft.Colors.CYAN_300,
+    )
+    dash_live_diff_icon = ft.Icon(
+        ft.Icons.TRENDING_FLAT_ROUNDED,
+        color=ft.Colors.GREY_400,
+        size=24,
+    )
+    dash_live_diff_text = ft.Text(
+        "+0.0000 (+0.00%)",
+        size=12,
+        weight=ft.FontWeight.BOLD,
+        color=ft.Colors.GREY_400,
+    )
+    dash_live_time_text = ft.Text("Aguardando stream de ticks...", size=11, color=ft.Colors.GREY_400)
+    dash_ticks_sparkline_row = ft.Row(
+        spacing=3,
+        alignment=ft.MainAxisAlignment.START,
+        vertical_alignment=ft.CrossAxisAlignment.END,
+        height=32,
+    )
+
+    def update_recent_ticks_display() -> None:
+        ticks = state.get("recent_ticks", [])
+        if not ticks:
+            return
+        min_p = min(ticks)
+        max_p = max(ticks)
+        span = (max_p - min_p) if (max_p - min_p) > 1e-9 else 1.0
+
+        bars = []
+        for i, p in enumerate(ticks):
+            h = 6 + int(((p - min_p) / span) * 22)
+            if i > 0:
+                is_up = p >= ticks[i - 1]
+                bar_color = ft.Colors.GREEN_400 if is_up else ft.Colors.RED_400
+            else:
+                bar_color = ft.Colors.CYAN_400
+            bars.append(
+                ft.Container(
+                    width=6,
+                    height=h,
+                    bgcolor=bar_color,
+                    border_radius=2,
+                    tooltip=f"Tick {i+1}: {p:.4f}",
+                )
+            )
+        dash_ticks_sparkline_row.controls = bars
+
+    async def handle_live_tick(tick_data: dict[str, Any]) -> None:
+        quote = float(tick_data.get("quote", 0.0))
+        epoch = int(tick_data.get("epoch", 0))
+        symbol = str(tick_data.get("symbol", state["selected_symbol"]))
+
+        if quote <= 0:
+            return
+
+        last = state.get("last_quote", 0.0)
+        diff = quote - last if last > 0 else 0.0
+        diff_pct = (diff / last * 100.0) if last > 0 else 0.0
+
+        state["last_quote"] = quote
+        state["tick_diff"] = diff
+        state["tick_diff_pct"] = diff_pct
+
+        recent = state.setdefault("recent_ticks", [])
+        recent.append(quote)
+        if len(recent) > 20:
+            recent.pop(0)
+
+        dash_live_symbol_chip.label = ft.Text(symbol, weight=ft.FontWeight.BOLD)
+        dash_live_price_text.value = f"{quote:,.4f}"
+
+        dt_str = datetime.fromtimestamp(epoch).strftime("%H:%M:%S") if epoch else datetime.now().strftime("%H:%M:%S")
+        dash_live_time_text.value = f"Último tick às {dt_str}"
+
+        if diff > 0:
+            dash_live_price_text.color = ft.Colors.GREEN_400
+            dash_live_diff_icon.icon = ft.Icons.TRENDING_UP_ROUNDED
+            dash_live_diff_icon.color = ft.Colors.GREEN_400
+            dash_live_diff_text.value = f"+{diff:.4f} (+{diff_pct:.2f}%)"
+            dash_live_diff_text.color = ft.Colors.GREEN_400
+        elif diff < 0:
+            dash_live_price_text.color = ft.Colors.RED_400
+            dash_live_diff_icon.icon = ft.Icons.TRENDING_DOWN_ROUNDED
+            dash_live_diff_icon.color = ft.Colors.RED_400
+            dash_live_diff_text.value = f"{diff:.4f} ({diff_pct:.2f}%)"
+            dash_live_diff_text.color = ft.Colors.RED_400
+        else:
+            dash_live_price_text.color = ft.Colors.CYAN_300
+            dash_live_diff_icon.icon = ft.Icons.TRENDING_FLAT_ROUNDED
+            dash_live_diff_icon.color = ft.Colors.GREY_400
+            dash_live_diff_text.value = "+0.0000 (+0.00%)"
+            dash_live_diff_text.color = ft.Colors.GREY_400
+
+        update_recent_ticks_display()
+
+        try:
+            cur_focused = dropdown_symbol.value if dropdown_symbol.value else state["selected_symbol"]
+            if symbol == cur_focused:
+                tick_price_display.value = f"{quote:,.4f}"
+                tick_price_display.color = dash_live_price_text.color
+                tick_diff_icon.icon = dash_live_diff_icon.icon
+                tick_diff_icon.color = dash_live_diff_icon.color
+                tick_time_text.value = f"Último tick (WebSocket): {dt_str} (Epoch: {epoch})"
+                tick_symbol_badge.label = ft.Text(symbol, weight=ft.FontWeight.BOLD)
+        except Exception:
+            pass
+
+        page.update()
+
+    async def set_active_subscription(new_symbol: str) -> None:
+        try:
+            await api_client.unsubscribe_all_ticks()
+            state["recent_ticks"] = []
+            dash_ticks_sparkline_row.controls.clear()
+            dash_live_status_badge.content = ft.Text(
+                "● CONECTANDO STREAM...",
+                size=10,
+                weight=ft.FontWeight.BOLD,
+                color=ft.Colors.AMBER_200,
+            )
+            dash_live_status_badge.bgcolor = ft.Colors.AMBER_900
+            dash_live_symbol_chip.label = ft.Text(new_symbol, weight=ft.FontWeight.BOLD)
+            page.update()
+
+            sub_id = await api_client.subscribe_ticks(
+                symbol=new_symbol,
+                callback=handle_live_tick,
+            )
+            dash_live_status_badge.content = ft.Text(
+                "● AO VIVO (WebSocket)",
+                size=10,
+                weight=ft.FontWeight.BOLD,
+                color=ft.Colors.GREEN_200,
+            )
+            dash_live_status_badge.bgcolor = ft.Colors.GREEN_900
+            log_event(
+                f"Stream de ticks em tempo real ativo para {new_symbol}.",
+                "SUCCESS",
+            )
+            page.update()
+        except Exception as exc:
+            dash_live_status_badge.content = ft.Text(
+                "● STREAM OFFLINE",
+                size=10,
+                weight=ft.FontWeight.BOLD,
+                color=ft.Colors.RED_200,
+            )
+            dash_live_status_badge.bgcolor = ft.Colors.RED_900
+            log_event(f"Falha ao conectar stream de {new_symbol}: {exc}", "WARNING")
+            page.update()
 
     async def action_authenticate(e: Any = None) -> bool:
         log_event("Iniciando autenticação via WebSocket com credenciais do .env...", "INFO")
@@ -565,6 +756,87 @@ async def main(page: ft.Page) -> None:
             spacing=16,
         )
 
+        live_ticker_card = ft.Container(
+            content=ft.Column(
+                [
+                    ft.Row(
+                        [
+                            ft.Row(
+                                [
+                                    ft.Icon(
+                                        ft.Icons.STREAM_ROUNDED,
+                                        color=ft.Colors.CYAN_400,
+                                        size=22,
+                                    ),
+                                    ft.Text(
+                                        "Monitor de Ticks em Tempo Real",
+                                        size=15,
+                                        weight=ft.FontWeight.BOLD,
+                                    ),
+                                    dash_live_symbol_chip,
+                                ],
+                                spacing=8,
+                            ),
+                            ft.Row(
+                                [
+                                    dash_live_status_badge,
+                                    ft.IconButton(
+                                        icon=ft.Icons.SYNC_ROUNDED,
+                                        tooltip="Reconectar Stream de Ticks",
+                                        on_click=lambda _: page.run_task(
+                                            lambda: set_active_subscription(state["selected_symbol"])
+                                        ),
+                                    ),
+                                ],
+                                spacing=6,
+                            ),
+                        ],
+                        alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
+                    ),
+                    ft.Row(
+                        [
+                            ft.Column(
+                                [
+                                    dash_live_price_text,
+                                    ft.Row(
+                                        [
+                                            dash_live_diff_icon,
+                                            dash_live_diff_text,
+                                            dash_live_time_text,
+                                        ],
+                                        spacing=6,
+                                        vertical_alignment=ft.CrossAxisAlignment.CENTER,
+                                    ),
+                                ],
+                                spacing=2,
+                            ),
+                            ft.Container(
+                                content=ft.Column(
+                                    [
+                                        ft.Text(
+                                            "Últimos Ticks (Tendência)",
+                                            size=10,
+                                            weight=ft.FontWeight.BOLD,
+                                            color=ft.Colors.GREY_400,
+                                        ),
+                                        dash_ticks_sparkline_row,
+                                    ],
+                                    spacing=4,
+                                    alignment=ft.MainAxisAlignment.END,
+                                ),
+                                padding=ft.padding.Padding(0, 0, 8, 0),
+                            ),
+                        ],
+                        alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
+                    ),
+                ],
+                spacing=10,
+            ),
+            bgcolor=ft.Colors.SURFACE_CONTAINER_HIGHEST,
+            padding=16,
+            border_radius=12,
+        )
+
         quick_actions_card = ft.Container(
             content=ft.Column(
                 [
@@ -660,6 +932,7 @@ async def main(page: ft.Page) -> None:
                         spacing=2,
                     ),
                     kpi_row,
+                    live_ticker_card,
                     quick_actions_card,
                     log_card,
                 ],
@@ -700,7 +973,7 @@ async def main(page: ft.Page) -> None:
     tick_diff_icon = ft.Icon(ft.Icons.TRENDING_FLAT_ROUNDED, color=ft.Colors.GREY_400, size=28)
     tick_time_text = ft.Text("Última atualização: --", size=12, color=ft.Colors.GREY_400)
     tick_symbol_badge = ft.Chip(label=ft.Text("1HZ100V", weight=ft.FontWeight.BOLD))
-    switch_live_stream = ft.Switch(label="Atualização Contínua (Polling 2s)", value=False)
+    switch_live_stream = ft.Switch(label="Stream WebSocket em Tempo Real", value=True)
 
     contracts_table = ft.DataTable(
         columns=[
@@ -791,22 +1064,30 @@ async def main(page: ft.Page) -> None:
         state["selected_symbol"] = sym
         dd_bot_symbol.value = sym
         log_event(f"Ativo selecionado: {sym}. Consultando cotação e contratos...", "INFO")
-        await update_tick_view(sym)
+        if state.get("live_stream_active", True):
+            await set_active_subscription(sym)
+        else:
+            await update_tick_view(sym)
         await load_contracts_for_symbol(sym)
 
-    async def poll_ticks_loop() -> None:
-        while state["polling_active"]:
-            sym = dropdown_symbol.value or "1HZ100V"
-            await update_tick_view(sym)
-            await asyncio.sleep(2.0)
-
-    def on_switch_polling_change(e: Any) -> None:
-        state["polling_active"] = switch_live_stream.value
-        if state["polling_active"]:
-            log_event("Polling contínuo de ticks ativado (intervalo: 2s).", "INFO")
-            page.run_task(poll_ticks_loop)
+    async def on_switch_live_stream_change(e: Any = None) -> None:
+        active = bool(switch_live_stream.value)
+        state["live_stream_active"] = active
+        sym = dropdown_symbol.value or state["selected_symbol"]
+        if active:
+            log_event(f"Reativando stream contínuo de ticks para {sym}...", "INFO")
+            await set_active_subscription(sym)
         else:
-            log_event("Polling contínuo de ticks pausado.", "INFO")
+            log_event("Stream contínuo de ticks pausado pelo usuário.", "INFO")
+            await api_client.unsubscribe_all_ticks()
+            dash_live_status_badge.content = ft.Text(
+                "● PAUSADO",
+                size=10,
+                weight=ft.FontWeight.BOLD,
+                color=ft.Colors.AMBER_200,
+            )
+            dash_live_status_badge.bgcolor = ft.Colors.AMBER_900
+            page.update()
 
     def filter_catalog(e: Any = None) -> None:
         query = (search_catalog_input.value or "").strip().lower()
@@ -828,7 +1109,10 @@ async def main(page: ft.Page) -> None:
                     dropdown_symbol.value = selected_s
                     state["selected_symbol"] = selected_s
                     dd_bot_symbol.value = selected_s
-                    await update_tick_view(selected_s)
+                    if state.get("live_stream_active", True):
+                        await set_active_subscription(selected_s)
+                    else:
+                        await update_tick_view(selected_s)
                     await load_contracts_for_symbol(selected_s)
                     notify(f"Ativo {selected_s} carregado nas cotações e no Bot!")
 
@@ -873,7 +1157,7 @@ async def main(page: ft.Page) -> None:
 
     search_catalog_input.on_change = filter_catalog
     dropdown_symbol.on_change = on_symbol_selected
-    switch_live_stream.on_change = on_switch_polling_change
+    switch_live_stream.on_change = lambda e: page.run_task(lambda: on_switch_live_stream_change(e))
 
     def build_catalog_view() -> ft.Control:
         quote_card = ft.Container(
@@ -1596,8 +1880,19 @@ async def main(page: ft.Page) -> None:
         # Dispara obrigatoriamente a autenticação no WebSocket via .env antes de ticks e saldos
         await action_authenticate()
         await load_symbols_into_ui()
-        await update_tick_view("1HZ100V")
-        await load_contracts_for_symbol("1HZ100V")
+        init_sym = state.get("selected_symbol", "1HZ100V")
+        await set_active_subscription(init_sym)
+        await load_contracts_for_symbol(init_sym)
+
+    async def cleanup_subscriptions(e: Any = None) -> None:
+        try:
+            await api_client.unsubscribe_all_ticks()
+            log_event("Sessão encerrada: subscrições de ticks canceladas via 'forget'.", "INFO")
+        except Exception:
+            pass
+
+    page.on_disconnect = lambda e: page.run_task(cleanup_subscriptions)
+    page.on_close = lambda e: page.run_task(cleanup_subscriptions)
 
     page.run_task(initial_load)
 

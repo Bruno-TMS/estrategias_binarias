@@ -39,6 +39,11 @@ class GraficoGUI:
     async def on_closing(self, conn: Any = None, shutdown_event: Any = None) -> None:
         """Compatibilidade para encerramento de conexão."""
         self.running = False
+        try:
+            from api.deps import deriv_service
+            await deriv_service.unsubscribe_all_ticks()
+        except Exception:
+            pass
         if self.bot and hasattr(self.bot, "stop"):
             await self.bot.stop()
         if conn and hasattr(conn, "disconnect"):
