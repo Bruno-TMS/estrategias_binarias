@@ -289,47 +289,69 @@ async def main(page: ft.Page) -> None:
         log_list_view.controls.append(entry)
         page.update()
 
-    # --- Elementos do AppBar ---
+    # --- Elementos da Barra Superior (AppBar) ---
     appbar_api_mode = ft.Chip(
-        label=ft.Text("Modo: Detectando...", size=11),
-        bgcolor=ft.Colors.SURFACE_CONTAINER_HIGHEST,
+        label=ft.Text("Modo: Inicializando...", size=11, color=ft.Colors.GREY_300),
+        bgcolor=ft.Colors.SURFACE_CONTAINER_HIGH,
+        border_side=ft.border.BorderSide(1, ft.Colors.OUTLINE_VARIANT),
     )
-    appbar_ws_status = ft.Chip(
-        label=ft.Text("WS: Standby", size=11, color=ft.Colors.AMBER_200),
-        bgcolor=ft.Colors.AMBER_900,
+    appbar_ws_icon = ft.Icon(
+        ft.Icons.WIFI_OFF_ROUNDED,
+        size=18,
+        color=ft.Colors.RED_ACCENT_400,
+    )
+    appbar_ws_status = ft.Container(
+        content=appbar_ws_icon,
+        tooltip="WebSocket Deriv: Desconectado / Sem Sessão",
+        bgcolor=ft.Colors.RED_900,
+        border=ft.Border.all(1, ft.Colors.RED_700),
+        border_radius=8,
+        padding=ft.padding.Padding(8, 6, 8, 6),
+        alignment=ft.Alignment.CENTER,
+        animate=ft.Animation(250, ft.AnimationCurve.EASE_OUT),
     )
     appbar_account_chip = ft.Chip(
         leading=ft.Icon(ft.Icons.ACCOUNT_CIRCLE_ROUNDED, size=16, color=ft.Colors.GREY_400),
-        label=ft.Text("Conta: Standby", size=11),
-        bgcolor=ft.Colors.SURFACE_CONTAINER_HIGHEST,
+        label=ft.Text("Conta: Aguardando", size=11, color=ft.Colors.GREY_300),
+        bgcolor=ft.Colors.SURFACE_CONTAINER_HIGH,
+        border_side=ft.border.BorderSide(1, ft.Colors.OUTLINE_VARIANT),
     )
     appbar_balance_chip = ft.Chip(
-        label=ft.Text(f"Saldo: {format_currency(0.0)}", size=11, weight=ft.FontWeight.BOLD),
+        label=ft.Text(f"Saldo: {format_currency(0.0)}", size=11, weight=ft.FontWeight.BOLD, color=ft.Colors.GREEN_100),
         bgcolor=ft.Colors.GREEN_900,
+        border_side=ft.border.BorderSide(1, ft.Colors.GREEN_700),
     )
     appbar_clock_chip = ft.Chip(
         leading=ft.Icon(ft.Icons.SCHEDULE_ROUNDED, size=16, color=ft.Colors.CYAN_200),
-        label=ft.Text("UTC: --:--:--", size=11, weight=ft.FontWeight.W_500),
-        bgcolor=ft.Colors.SURFACE_CONTAINER_HIGHEST,
-        tooltip="Relógio Oficial Deriv (UTC)",
+        label=ft.Text("--/--/-- --:--:--", size=11, weight=ft.FontWeight.W_600, color=ft.Colors.CYAN_100),
+        bgcolor=ft.Colors.SURFACE_CONTAINER_HIGH,
+        border_side=ft.border.BorderSide(1, ft.Colors.CYAN_800),
+        tooltip="Relógio Oficial Deriv (UTC) [DD/MM/AA HH:MM:SS]",
     )
     appbar_session_chip = ft.Chip(
         leading=ft.Icon(ft.Icons.TIMER_ROUNDED, size=16, color=ft.Colors.AMBER_200),
-        label=ft.Text("Sessão: --", size=11, weight=ft.FontWeight.BOLD),
-        bgcolor=ft.Colors.SURFACE_CONTAINER_HIGHEST,
-        tooltip="Tempo Logado na Sessão Ativa",
+        label=ft.Text("Sessão: --", size=11, weight=ft.FontWeight.BOLD, color=ft.Colors.GREY_400),
+        bgcolor=ft.Colors.SURFACE_CONTAINER_HIGH,
+        border_side=ft.border.BorderSide(1, ft.Colors.OUTLINE_VARIANT),
+        tooltip="Tempo Logado na Sessão Ativa [00d 00h 00m 00s]",
     )
 
     def update_header_status() -> None:
         mode_text = "API REST (:8000)" if api_client.mode == "api" else "Serviços Diretos"
-        appbar_api_mode.label = ft.Text(f"Modo: {mode_text}", size=11)
+        appbar_api_mode.label = ft.Text(f"Modo: {mode_text}", size=11, color=ft.Colors.GREY_200)
 
         if state["ws_connected"]:
-            appbar_ws_status.label = ft.Text("WS: Conectado", size=11, color=ft.Colors.GREEN_200)
+            appbar_ws_icon.name = ft.Icons.WIFI_ROUNDED
+            appbar_ws_icon.color = ft.Colors.GREEN_ACCENT_400
             appbar_ws_status.bgcolor = ft.Colors.GREEN_900
+            appbar_ws_status.border = ft.Border.all(1, ft.Colors.GREEN_600)
+            appbar_ws_status.tooltip = "WebSocket Deriv: Conectado e Ativo"
         else:
-            appbar_ws_status.label = ft.Text("WS: Desconectado", size=11, color=ft.Colors.RED_200)
+            appbar_ws_icon.name = ft.Icons.WIFI_OFF_ROUNDED
+            appbar_ws_icon.color = ft.Colors.RED_ACCENT_400
             appbar_ws_status.bgcolor = ft.Colors.RED_900
+            appbar_ws_status.border = ft.Border.all(1, ft.Colors.RED_600)
+            appbar_ws_status.tooltip = "WebSocket Deriv: Desconectado / Sem Sessão"
 
         if state["is_authenticated"]:
             tag = "Demo" if state["is_virtual"] else "Real"
@@ -337,16 +359,21 @@ async def main(page: ft.Page) -> None:
                 f"{state['loginid']} ({tag})",
                 size=11,
                 weight=ft.FontWeight.BOLD,
+                color=ft.Colors.TEAL_100 if state["is_virtual"] else ft.Colors.AMBER_100,
             )
             appbar_account_chip.bgcolor = ft.Colors.TEAL_900 if state["is_virtual"] else ft.Colors.AMBER_900
+            appbar_account_chip.border_side = ft.border.BorderSide(
+                1, ft.Colors.TEAL_700 if state["is_virtual"] else ft.Colors.AMBER_700
+            )
             appbar_account_chip.leading = ft.Icon(
                 ft.Icons.VERIFIED_USER_ROUNDED,
                 size=16,
-                color=ft.Colors.TEAL_200 if state["is_virtual"] else ft.Colors.AMBER_200,
+                color=ft.Colors.TEAL_300 if state["is_virtual"] else ft.Colors.AMBER_300,
             )
         else:
-            appbar_account_chip.label = ft.Text("Não Autenticado", size=11)
-            appbar_account_chip.bgcolor = ft.Colors.SURFACE_CONTAINER_HIGHEST
+            appbar_account_chip.label = ft.Text("Não Autenticado", size=11, color=ft.Colors.GREY_400)
+            appbar_account_chip.bgcolor = ft.Colors.SURFACE_CONTAINER_HIGH
+            appbar_account_chip.border_side = ft.border.BorderSide(1, ft.Colors.OUTLINE_VARIANT)
             appbar_account_chip.leading = ft.Icon(
                 ft.Icons.ACCOUNT_CIRCLE_ROUNDED,
                 size=16,
@@ -359,16 +386,18 @@ async def main(page: ft.Page) -> None:
             f"Saldo: {format_currency(bal, curr)}",
             size=11,
             weight=ft.FontWeight.BOLD,
+            color=ft.Colors.GREEN_100,
         )
 
         appbar_clock_chip.label = ft.Text(
-            f"UTC: {state.get('server_time_utc', '--:--:--')}",
+            f"{state.get('server_time_utc', '--/--/-- --:--:--')}",
             size=11,
-            weight=ft.FontWeight.W_500,
+            weight=ft.FontWeight.W_600,
             color=ft.Colors.CYAN_100,
         )
-        if state.get("is_authenticated", False):
+        if state.get("is_authenticated", False) and time_operations.is_logged_in:
             appbar_session_chip.bgcolor = ft.Colors.AMBER_900
+            appbar_session_chip.border_side = ft.border.BorderSide(1, ft.Colors.AMBER_700)
             appbar_session_chip.label = ft.Text(
                 f"Sessão: {state.get('tempo_logado_str', '--')}",
                 size=11,
@@ -376,7 +405,8 @@ async def main(page: ft.Page) -> None:
                 color=ft.Colors.AMBER_100,
             )
         else:
-            appbar_session_chip.bgcolor = ft.Colors.SURFACE_CONTAINER_HIGHEST
+            appbar_session_chip.bgcolor = ft.Colors.SURFACE_CONTAINER_HIGH
+            appbar_session_chip.border_side = ft.border.BorderSide(1, ft.Colors.OUTLINE_VARIANT)
             appbar_session_chip.label = ft.Text("Sessão: --", size=11, color=ft.Colors.GREY_400)
 
         page.update()
@@ -474,21 +504,22 @@ async def main(page: ft.Page) -> None:
     )
 
     def update_time_displays() -> None:
-        srv_time = state.get("server_time_utc", "--:--:-- UTC")
+        srv_time = state.get("server_time_utc", "--/--/-- --:--:--")
         srv_full = state.get("server_time_full_utc", "--")
-        t_logado = state.get("tempo_logado_str", "--")
+        t_logado = state.get("tempo_logado_str", "00d 00h 00m 00s")
 
         appbar_clock_chip.label = ft.Text(
-            f"UTC: {srv_time}",
+            f"{srv_time}",
             size=11,
-            weight=ft.FontWeight.W_500,
+            weight=ft.FontWeight.W_600,
             color=ft.Colors.CYAN_100,
         )
-        dash_server_time_text.value = srv_time
-        settings_server_time_detail.value = f"Relógio Deriv (UTC): {srv_full or srv_time}"
+        dash_server_time_text.value = f"{srv_time} (UTC)"
+        settings_server_time_detail.value = f"Relógio Oficial Deriv (UTC): {srv_time}"
 
         if state.get("is_authenticated") and time_operations.is_logged_in:
             appbar_session_chip.bgcolor = ft.Colors.AMBER_900
+            appbar_session_chip.border_side = ft.border.BorderSide(1, ft.Colors.AMBER_700)
             appbar_session_chip.label = ft.Text(
                 f"Sessão: {t_logado}",
                 size=11,
@@ -506,16 +537,16 @@ async def main(page: ft.Page) -> None:
             settings_tempo_logado_detail.value = f"Duração Acumulada: {t_logado}"
 
             if time_operations.inicio_sessao_utc:
-                dt_str = time_operations.inicio_sessao_utc.strftime("%H:%M:%S UTC")
-                dt_full = time_operations.inicio_sessao_utc.strftime("%Y-%m-%d %H:%M:%S UTC")
+                dt_str = time_operations.inicio_sessao_utc.strftime("%d/%m/%y %H:%M:%S")
                 dash_session_start_text.value = f"Início: {dt_str}"
-                settings_session_start_detail.value = f"Início da Sessão: {dt_full}"
+                settings_session_start_detail.value = f"Início da Sessão: {dt_str} UTC"
         else:
-            appbar_session_chip.bgcolor = ft.Colors.SURFACE_CONTAINER_HIGHEST
+            appbar_session_chip.bgcolor = ft.Colors.SURFACE_CONTAINER_HIGH
+            appbar_session_chip.border_side = ft.border.BorderSide(1, ft.Colors.OUTLINE_VARIANT)
             appbar_session_chip.label = ft.Text("Sessão: --", size=11, color=ft.Colors.GREY_400)
             dash_tempo_logado_text.value = "--"
             dash_session_badge.content = ft.Text(
-                "Standby",
+                "Aguardando",
                 size=10,
                 weight=ft.FontWeight.BOLD,
                 color=ft.Colors.GREY_400,
@@ -556,11 +587,11 @@ async def main(page: ft.Page) -> None:
             res = await time_operations.get_server_time(api_client)
             dt_utc = res.get("datetime_utc")
             if dt_utc:
-                state["server_time_utc"] = dt_utc.strftime("%H:%M:%S UTC")
-                state["server_time_full_utc"] = res.get("formatted", "")
+                state["server_time_utc"] = dt_utc.strftime("%d/%m/%y %H:%M:%S")
+                state["server_time_full_utc"] = res.get("formatted", dt_utc.strftime("%d/%m/%y %H:%M:%S"))
             update_time_displays()
             log_event(
-                f"Relógio Deriv sincronizado: {res.get('formatted')} (Epoch: {res.get('epoch')})",
+                f"Relógio Deriv sincronizado: {state.get('server_time_utc')} (Epoch: {res.get('epoch')})",
                 "SUCCESS",
             )
             notify("Relógio Deriv sincronizado com sucesso!")
@@ -589,8 +620,8 @@ async def main(page: ft.Page) -> None:
                         res = await time_operations.get_server_time(api_client)
                         dt_utc = res.get("datetime_utc")
                         if dt_utc:
-                            state["server_time_utc"] = dt_utc.strftime("%H:%M:%S UTC")
-                            state["server_time_full_utc"] = res.get("formatted", "")
+                            state["server_time_utc"] = dt_utc.strftime("%d/%m/%y %H:%M:%S")
+                            state["server_time_full_utc"] = res.get("formatted", dt_utc.strftime("%d/%m/%y %H:%M:%S"))
                         last_sync_time = now_mono
                     except Exception as exc:
                         logger.debug(f"Erro ao sincronizar tempo com Deriv: {exc}")
@@ -2274,36 +2305,59 @@ async def main(page: ft.Page) -> None:
     )
 
     page.appbar = ft.AppBar(
-        leading=ft.Icon(ft.Icons.AUTO_GRAPH_ROUNDED, color=ft.Colors.CYAN_400, size=28),
-        leading_width=48,
+        leading=ft.Container(
+            content=ft.Icon(ft.Icons.AUTO_GRAPH_ROUNDED, color=ft.Colors.CYAN_300, size=26),
+            padding=ft.padding.Padding(12, 0, 0, 0),
+        ),
+        leading_width=44,
         title=ft.Row(
             [
-                ft.Text("Deriv Quantum Trading Bot", size=18, weight=ft.FontWeight.BOLD),
-                ft.Text("• IA & Ichimoku Dinâmico", size=13, color=ft.Colors.GREY_400),
+                ft.Text(
+                    "Deriv Quantum Trading Bot",
+                    size=17,
+                    weight=ft.FontWeight.BOLD,
+                    color=ft.Colors.WHITE,
+                ),
+                ft.Container(
+                    content=ft.Text(
+                        "IA & Ichimoku Dinâmico",
+                        size=11,
+                        weight=ft.FontWeight.W_500,
+                        color=ft.Colors.CYAN_200,
+                    ),
+                    bgcolor=ft.Colors.SURFACE_CONTAINER_HIGH,
+                    border=ft.Border.all(1, ft.Colors.CYAN_800),
+                    border_radius=6,
+                    padding=ft.padding.Padding(8, 3, 8, 3),
+                ),
             ],
-            spacing=8,
+            spacing=10,
             vertical_alignment=ft.CrossAxisAlignment.CENTER,
         ),
         center_title=False,
         bgcolor=ft.Colors.SURFACE_CONTAINER_HIGHEST,
         actions=[
-            ft.Row(
-                [
-                    appbar_api_mode,
-                    appbar_ws_status,
-                    appbar_clock_chip,
-                    appbar_session_chip,
-                    appbar_account_chip,
-                    appbar_balance_chip,
-                    ft.IconButton(
-                        icon=ft.Icons.REFRESH_ROUNDED,
-                        tooltip="Atualizar Saldo e Status",
-                        on_click=action_fetch_balance,
-                    ),
-                ],
-                spacing=10,
+            ft.Container(
+                content=ft.Row(
+                    [
+                        appbar_api_mode,
+                        appbar_ws_status,
+                        appbar_clock_chip,
+                        appbar_session_chip,
+                        appbar_account_chip,
+                        appbar_balance_chip,
+                        ft.IconButton(
+                            icon=ft.Icons.REFRESH_ROUNDED,
+                            icon_color=ft.Colors.CYAN_300,
+                            tooltip="Atualizar Saldo e Status",
+                            on_click=action_fetch_balance,
+                        ),
+                    ],
+                    spacing=8,
+                    vertical_alignment=ft.CrossAxisAlignment.CENTER,
+                ),
+                padding=ft.padding.Padding(0, 0, 16, 0),
             ),
-            ft.Container(width=12),
         ],
     )
 

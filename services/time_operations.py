@@ -133,15 +133,16 @@ class TimeOperations:
         return diff
 
     def format_tempo_logado(self, current_dt: datetime | None = None) -> str:
-        """Formata o tempo logado no formato canônico '01h 25m 43s'."""
+        """Formata o tempo logado no formato estrito '00d 00h 00m 00s'."""
         td = self.get_tempo_logado(current_dt)
         if td is None:
             return "--"
         total_seconds = int(td.total_seconds())
-        hours = total_seconds // 3600
+        days = total_seconds // 86400
+        hours = (total_seconds % 86400) // 3600
         minutes = (total_seconds % 3600) // 60
         seconds = total_seconds % 60
-        return f"{hours:02d}h {minutes:02d}m {seconds:02d}s"
+        return f"{days:02d}d {hours:02d}h {minutes:02d}m {seconds:02d}s"
 
     # -------------------------------------------------------------------------
     # Relógio do Servidor Deriv (UTC)
@@ -150,7 +151,7 @@ class TimeOperations:
         """Consulta o relógio oficial do servidor Deriv via WebSocket ('{"time": 1}').
 
         Converte o Epoch retornado em um objeto datetime UTC e string formatada
-        ('YYYY-MM-DD HH:MM:SS UTC').
+        no padrão brasileiro ('DD/MM/AA HH:MM:SS').
         """
         active_service = service or self.service
         if active_service is None:
@@ -165,7 +166,8 @@ class TimeOperations:
             epoch_val = int(epoch_raw)
 
         dt_utc = datetime.fromtimestamp(epoch_val, tz=timezone.utc)
-        formatted = dt_utc.strftime("%Y-%m-%d %H:%M:%S UTC")
+        formatted_ptbr = dt_utc.strftime("%d/%m/%y %H:%M:%S")
+        formatted_iso = dt_utc.strftime("%Y-%m-%d %H:%M:%S UTC")
 
         self._last_server_epoch = epoch_val
         self._last_server_time_utc = dt_utc
@@ -173,7 +175,9 @@ class TimeOperations:
         return {
             "epoch": epoch_val,
             "datetime_utc": dt_utc,
-            "formatted": formatted,
+            "formatted": formatted_ptbr,
+            "formatted_ptbr": formatted_ptbr,
+            "formatted_utc": formatted_iso,
         }
 
     @property
@@ -204,13 +208,23 @@ class TimeOperations:
         return dt.strftime("%Y-%m-%d %H:%M:%S UTC")
 
     @staticmethod
+    def format_utc_datetime_ptbr(dt: datetime) -> str:
+        """Formata qualquer datetime para string brasileira 'DD/MM/AA HH:MM:SS'."""
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=timezone.utc)
+        else:
+            dt = dt.astimezone(timezone.utc)
+        return dt.strftime("%d/%m/%y %H:%M:%S")
+
+    @staticmethod
     def format_seconds_duration(seconds: float | int) -> str:
-        """Formata segundos em '00h 00m 00s'."""
+        """Formata segundos em '00d 00h 00m 00s'."""
         total = max(0, int(seconds))
-        h = total // 3600
-        m = (total % 3600) // 60
+        days = total // 86400
+        hours = (total % 86400) // 3600
+        minutes = (total % 3600) // 60
         s = total % 60
-        return f"{h:02d}h {m:02d}m {s:02d}s"
+        return f"{days:02d}d {hours:02d}h {minutes:02d}m {s:02d}s"
 
 
 # Instância global padrão

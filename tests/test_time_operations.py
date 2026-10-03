@@ -85,7 +85,7 @@ class TestTimeOperationsUnit(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(self.time_ops.tempo_atualizacao, 240.0)
 
     def test_session_lifecycle_and_utc_formatting(self) -> None:
-        """Testa o ciclo de vida do login, cálculo de tempo logado e formatação canônica HHh MMm SSs."""
+        """Testa o ciclo de vida do login, cálculo de tempo logado e formatação canônica 00d 00h 00m 00s."""
         base_login = datetime(2026, 10, 3, 10, 0, 0, tzinfo=timezone.utc)
         registered = self.time_ops.register_login(base_login)
         self.assertEqual(registered, base_login)
@@ -99,16 +99,21 @@ class TestTimeOperationsUnit(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(int(diff.total_seconds()), 3600 + 25 * 60 + 43)
 
         formatted = self.time_ops.format_tempo_logado(simulated_now)
-        self.assertEqual(formatted, "01h 25m 43s")
+        self.assertEqual(formatted, "00d 01h 25m 43s")
+
+        # Simulação com dias acumulados (1 dia, 4 horas, 12 minutos e 5 segundos)
+        simulated_days = base_login + timedelta(days=1, hours=4, minutes=12, seconds=5)
+        formatted_days = self.time_ops.format_tempo_logado(simulated_days)
+        self.assertEqual(formatted_days, "01d 04h 12m 05s")
 
         # Teste com naive datetime convertido automaticamente para UTC
         naive_now = datetime(2026, 10, 3, 10, 5, 12)
         diff_naive = self.time_ops.get_tempo_logado(naive_now)
-        self.assertEqual(self.time_ops.format_tempo_logado(naive_now), "00h 05m 12s")
+        self.assertEqual(self.time_ops.format_tempo_logado(naive_now), "00d 00h 05m 12s")
 
         # Se simulated_now for anterior ao login (skew de relógio), clamp para zero
         past_now = base_login - timedelta(seconds=10)
-        self.assertEqual(self.time_ops.format_tempo_logado(past_now), "00h 00m 00s")
+        self.assertEqual(self.time_ops.format_tempo_logado(past_now), "00d 00h 00m 00s")
 
         # Reset do login
         self.time_ops.reset_login()
@@ -130,7 +135,7 @@ class TestTimeOperationsUnit(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(reg_default.tzinfo, timezone.utc)
 
     async def test_get_server_time_with_mock_service(self) -> None:
-        """Testa consulta assíncrona ao tempo do servidor Deriv e preenchimento de campos."""
+        """Testa consulta assíncrona ao tempo do servidor Deriv e preenchimento de campos pt-BR."""
         mock_service = AsyncMock()
         # Epoch para 2024-10-03 12:00:00 UTC = 1727956800
         mock_service.get_server_time.return_value = 1727956800
@@ -138,7 +143,8 @@ class TestTimeOperationsUnit(unittest.IsolatedAsyncioTestCase):
         result = await self.time_ops.get_server_time(service=mock_service)
         self.assertEqual(result["epoch"], 1727956800)
         self.assertEqual(result["datetime_utc"], datetime(2024, 10, 3, 12, 0, 0, tzinfo=timezone.utc))
-        self.assertEqual(result["formatted"], "2024-10-03 12:00:00 UTC")
+        self.assertEqual(result["formatted"], "03/10/24 12:00:00")
+        self.assertEqual(result["formatted_ptbr"], "03/10/24 12:00:00")
         self.assertEqual(self.time_ops.last_server_epoch, 1727956800)
         self.assertEqual(self.time_ops.last_server_time_utc, datetime(2024, 10, 3, 12, 0, 0, tzinfo=timezone.utc))
 
@@ -152,15 +158,18 @@ class TestTimeOperationsUnit(unittest.IsolatedAsyncioTestCase):
         dt = TimeOperations.epoch_to_utc_datetime(1727956800)
         self.assertEqual(dt.tzinfo, timezone.utc)
         self.assertEqual(TimeOperations.format_utc_datetime(dt), "2024-10-03 12:00:00 UTC")
+        self.assertEqual(TimeOperations.format_utc_datetime_ptbr(dt), "03/10/24 12:00:00")
 
         # Naive datetime
         naive = datetime(2026, 5, 10, 8, 30, 0)
         self.assertEqual(TimeOperations.format_utc_datetime(naive), "2026-05-10 08:30:00 UTC")
+        self.assertEqual(TimeOperations.format_utc_datetime_ptbr(naive), "10/05/26 08:30:00")
 
-        # Duração em segundos
-        self.assertEqual(TimeOperations.format_seconds_duration(3665), "01h 01m 05s")
-        self.assertEqual(TimeOperations.format_seconds_duration(0), "00h 00m 00s")
-        self.assertEqual(TimeOperations.format_seconds_duration(-10), "00h 00m 00s")
+        # Duração com dias em formato 00d 00h 00m 00s
+        self.assertEqual(TimeOperations.format_seconds_duration(3665), "00d 01h 01m 05s")
+        self.assertEqual(TimeOperations.format_seconds_duration(86400 + 3600 * 4 + 60 * 12 + 5), "01d 04h 12m 05s")
+        self.assertEqual(TimeOperations.format_seconds_duration(0), "00d 00h 00m 00s")
+        self.assertEqual(TimeOperations.format_seconds_duration(-10), "00d 00h 00m 00s")
 
 
 class TestDerivServiceTimeIntegration(unittest.IsolatedAsyncioTestCase):

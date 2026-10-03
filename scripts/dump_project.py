@@ -8,11 +8,19 @@ from datetime import datetime
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 OUTPUT_FILE = PROJECT_ROOT / "dump_projeto.txt"
 
-TARGET_DIRS = ["api", "core", "deriv", "services"]
-TARGET_ROOT_FILES = ["main.py", "requirements.txt", ".env.example"]
+TARGET_DIRS = ["api", "core", "deriv", "services", "utils"]
+TARGET_ROOT_FILES = ["main.py", "ui_app.py", "requirements.txt", ".env.example"]
 
 IGNORED_DIRS = {".git", ".venv", "__pycache__", "logs", "scripts"}
-IGNORED_FILES = {".env", "dump_projeto.txt", "knv.csv", "journal.csv", "saida_terminal.txt"}
+IGNORED_FILES = {
+    ".env",
+    "dump_projeto.txt",
+    "desenvolvimento_projeto.txt",
+    "trading_memory.db",
+    "knv.csv",
+    "journal.csv",
+    "saida_terminal.txt",
+}
 IGNORED_EXTENSIONS = {".pyc", ".pyo", ".pyd", ".so", ".log"}
 
 

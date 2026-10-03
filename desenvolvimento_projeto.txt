@@ -1,0 +1,113 @@
+================================================================================
+HISTÓRICO CONSOLIDADO DE DESENVOLVIMENTO DO PROJETO
+Última Atualização: 2026-10-03 17:45:29 UTC
+================================================================================
+
+================================================================================
+[REGISTRO DE DESENVOLVIMENTO - 2026-10-03 17:45:29 UTC]
+--------------------------------------------------------------------------------
+PEDIDO (SENHOR SUPREMO):
+
+The application encountered an error: type object 'Colors' has no attribute 'RED_950'
+
+RESPOSTA / RELATÓRIO DE EXECUÇÃO (ANTIGRAVITY):
+
+Diagnóstico e Resolução do Erro no Flet ft.Colors:
+1. Causa Raiz: No framework Flet, a paleta de cores Material (ft.Colors) é mapeada com tonalidades numéricas de 50 a 900 (ex: RED_900, GREEN_900, TEAL_900, AMBER_900). A constante 'RED_950' não faz parte da biblioteca Flet.
+2. Correções Aplicadas em ui_app.py:
+- Substituídas todas as referências de _950 (RED_950, GREEN_950, TEAL_950, AMBER_950) por suas variantes oficiais _900.
+- Corrigida a chamada estática ft.border.all para a classe canônica ft.Border.all nos containers da barra superior.
+- Ajustado o alinhamento de ft.alignment.center para ft.Alignment.CENTER.
+- Garantido o uso consistente de border_side em todas as atualizações de estado dos chips.
+3. Validação e Qualidade:
+- Simulação completa do ciclo de vida da interface em modo headless sem erros de execução.
+- 52 testes unitários do repositório aprovados com 100% de sucesso.
+4. Governança:
+- dump_projeto.txt atualizado com os 32 arquivos consolidados.
+- desenvolvimento_projeto.txt atualizado incrementalmente no topo com histórico preservado.
+================================================================================
+
+================================================================================
+[REGISTRO DE DESENVOLVIMENTO - 2026-10-03 17:21:12 UTC]
+--------------------------------------------------------------------------------
+PEDIDO (SENHOR SUPREMO):
+
+The application encountered an error: Chip.__init__() got an unexpected keyword argument 'border'
+
+RESPOSTA / RELATÓRIO DE EXECUÇÃO (ANTIGRAVITY):
+
+Diagnóstico e Resolução do Erro no Flet Chip:
+1. Causa Raiz: No framework Flet, o controle ft.Chip não possui o argumento 'border' (específico de ft.Container), utilizando canonicamente o parâmetro 'border_side' do tipo ft.border.BorderSide.
+2. Correção Aplicada: No arquivo ui_app.py, todas as 5 instâncias de ft.Chip da barra superior (appbar_api_mode, appbar_account_chip, appbar_balance_chip, appbar_clock_chip, appbar_session_chip) foram ajustadas para utilizar border_side=ft.border.BorderSide(...).
+3. Validação e Qualidade:
+- Validação de compilação do módulo ui_app.py sem erros sintáticos.
+- Execução completa da suíte de testes com 100% de aprovação (52/52 testes passando).
+4. Governança:
+- dump_projeto.txt atualizado com os 32 arquivos consolidados.
+- desenvolvimento_projeto.txt atualizado incrementalmente no topo com preservação histórica.
+================================================================================
+
+================================================================================
+[REGISTRO DE DESENVOLVIMENTO - 2026-10-03 17:16:51 UTC]
+--------------------------------------------------------------------------------
+PEDIDO (SENHOR SUPREMO):
+
+Redesign e Valorização da Barra Superior (barra_superior):
+1. Elevar o contraste e o apelo visual da barra superior no Flet (background, bordas sutis e espaçamento interno refinado).
+Garantir que 100% dos textos e rótulos estejam em Português do Brasil (pt-BR).
+2. Ícone Dinâmico de Conexão WebSocket:
+Remover o texto rotulado "WS Conectado".
+Substituir por um controle visual minimalista com ícone de Wi-Fi / Sinal de Conexão (ft.Icons.WIFI / ft.Icons.WIFI_OFF):
+- Conectado: Ícone em verde brilhante (#00E676) com status ativo.
+- Desconectado / Erro: Ícone em vermelho (#FF5252) destacando perda de sessão.
+3. Horário do Servidor em Formato pt-BR (DD/MM/AA HH:MM:SS):
+Tratar o tempo UTC da Deriv ({"time": 1}) utilizando a biblioteca nativa datetime com timezone.utc.
+Exibir o relógio do servidor obrigatoriamente no formato brasileiro: DD/MM/AA HH:MM:SS (incluindo dia, mês e ano).
+4. Formatação do tempo_logado (00d 00h 00m 00s):
+Atualizar o cálculo de duração de sessão no time_operations.py para incluir suporte a dias acumulados com máscara estrita 00d 00h 00m 00s.
+5. Manter suíte de testes 100% aprovada, atualizar dump_projeto.txt e desenvolvimento_projeto.txt.
+
+RESPOSTA / RELATÓRIO DE EXECUÇÃO (ANTIGRAVITY):
+
+1. Redesign da Barra Superior (page.appbar em ui_app.py):
+- Implementação de layout refinado com cores de alto contraste (SURFACE_CONTAINER_HIGHEST), bordas sutis e padding ajustado.
+- 100% dos rótulos em Português do Brasil (pt-BR): 'Modo: Inicializando...', 'Conta: Aguardando', 'Sessão Ativa / Aguardando'.
+
+2. Ícone Dinâmico de Conexão WebSocket:
+- Removido texto estático 'WS Conectado'.
+- Criado controle visual minimalista com ft.Icons.WIFI_ROUNDED (verde fluorescente #00E676 quando conectado) e ft.Icons.WIFI_OFF_ROUNDED (vermelho #FF5252 quando desconectado), sem poluição textual.
+
+3. Horário Oficial do Servidor Deriv em Formato Brasileiro (DD/MM/AA HH:MM:SS):
+- Integração no services/time_operations.py com timezone.utc e formatação estrita DD/MM/AA HH:MM:SS (%d/%m/%y %H:%M:%S).
+- Atualização em tempo real na barra superior e no módulo de ajustes.
+
+4. Formatação de Duração de Sessão (00d 00h 00m 00s):
+- Método format_tempo_logado() atualizado com suporte a dias acumulados e máscara rigorosa 00d 00h 00m 00s.
+- Propagação reativa para o chip de sessão da barra superior.
+
+5. Validação e Qualidade:
+- Suíte completa de testes executada com 100% de sucesso (52 testes aprovados em 2.406s).
+- 16 testes unitários dedicados em tests/test_time_operations.py cobrindo ciclo de vida, UTC e nova máscara de tempo.
+
+6. Governança:
+- dump_projeto.txt atualizado com 32 arquivos consolidados via scripts/generate_dump.py.
+- desenvolvimento_projeto.txt atualizado incrementalmente via scripts/generate_dev_log.py.
+================================================================================
+
+================================================================================
+[REGISTRO DE DESENVOLVIMENTO - 2026-10-03 16:43:51 UTC]
+--------------------------------------------------------------------------------
+PEDIDO (SENHOR SUPREMO):
+
+Criação do script de registro incremental scripts/generate_dev_log.py e inicialização do histórico desenvolvimento_projeto.txt na raiz do projeto.
+Regras: Inserção incremental no topo (prepend), padronização estrita de cabeçalho UTC, interface CLI helper com suporte a argumentos ou arquivos, preservação integral do histórico e execução do comando de governança para atualização do dump_projeto.txt.
+
+RESPOSTA / RELATÓRIO DE EXECUÇÃO (ANTIGRAVITY):
+
+1. Criado o módulo utilitário scripts/generate_dev_log.py (e o atalho scripts/update_dev_log.py) em Python puro com tratamento nativo de timezone.utc.
+2. Implementada a arquitetura incremental no topo (prepend), mantendo o cabeçalho superior atualizado com o timestamp UTC mais recente e preservando integralmente o histórico abaixo.
+3. Criado o script scripts/generate_dump.py e refinado scripts/dump_project.py incluindo utils e ui_app.py e ignorando desenvolvimento_projeto.txt e trading_memory.db.
+4. Desenvolvida suíte de testes unitários em tests/test_generate_dev_log.py validando formatação canônica, criação de arquivo, prepend cronológico e extração de histórico.
+5. Suíte total de testes unitários expandida para 52 testes com 100% de taxa de aprovação (0 erros, 0 falhas).
+6. Execução do dump consolidado do projeto via scripts/generate_dump.py para sincronização do código-fonte.
+================================================================================
