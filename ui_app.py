@@ -27,6 +27,12 @@ logger = logging.getLogger("ui_app")
 API_BASE_URL = os.getenv("API_BASE_URL", "http://127.0.0.1:8000")
 
 
+def format_currency(amount: float, currency: str = "USD") -> str:
+    """Formata valor financeiro no padrão com separadores (ex: USD 10.001,66)."""
+    formatted = f"{amount:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+    return f"{currency} {formatted}"
+
+
 class DerivApiClient:
     """Cliente híbrido resiliente:
 
@@ -37,6 +43,23 @@ class DerivApiClient:
     def __init__(self, base_url: str = API_BASE_URL) -> None:
         self.base_url = base_url.rstrip("/")
         self.mode = "api"  # "api" ou "direct"
+
+    async def authorize(self) -> dict[str, Any]:
+        """Executa ou verifica a autenticação da conta na Deriv."""
+        try:
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                resp = await client.get(f"{self.base_url}/deriv/auth/verify")
+                if resp.status_code == 200:
+                    self.mode = "api"
+                    return resp.json().get("data", {})
+        except Exception:
+            pass
+
+        # Fallback direto
+        self.mode = "direct"
+        from api.deps import deriv_service
+
+        return await deriv_service.authorize()
 
     async def get_balance(self) -> dict[str, Any]:
         """Consulta o saldo da conta."""
@@ -172,6 +195,10 @@ async def main(page: ft.Page) -> None:
         "balance": 0.0,
         "currency": "USD",
         "loginid": "--",
+        "fullname": "--",
+        "is_virtual": True,
+        "account_type": "Conta Demo",
+        "is_authenticated": False,
         "ws_connected": False,
         "selected_symbol": "1HZ100V",
         "symbols_list": [],
@@ -227,8 +254,13 @@ async def main(page: ft.Page) -> None:
         label=ft.Text("WS: Standby", size=11, color=ft.Colors.AMBER_200),
         bgcolor=ft.Colors.AMBER_900,
     )
+    appbar_account_chip = ft.Chip(
+        leading=ft.Icon(ft.Icons.ACCOUNT_CIRCLE_ROUNDED, size=16, color=ft.Colors.GREY_400),
+        label=ft.Text("Conta: Standby", size=11),
+        bgcolor=ft.Colors.SURFACE_CONTAINER_HIGHEST,
+    )
     appbar_balance_chip = ft.Chip(
-        label=ft.Text("Saldo: USD --", size=11, weight=ft.FontWeight.BOLD),
+        label=ft.Text(f"Saldo: {format_currency(0.0)}", size=11, weight=ft.FontWeight.BOLD),
         bgcolor=ft.Colors.GREEN_900,
     )
 
@@ -243,10 +275,32 @@ async def main(page: ft.Page) -> None:
             appbar_ws_status.label = ft.Text("WS: Desconectado", size=11, color=ft.Colors.RED_200)
             appbar_ws_status.bgcolor = ft.Colors.RED_900
 
+        if state["is_authenticated"]:
+            tag = "Demo" if state["is_virtual"] else "Real"
+            appbar_account_chip.label = ft.Text(
+                f"{state['loginid']} ({tag})",
+                size=11,
+                weight=ft.FontWeight.BOLD,
+            )
+            appbar_account_chip.bgcolor = ft.Colors.TEAL_900 if state["is_virtual"] else ft.Colors.AMBER_900
+            appbar_account_chip.leading = ft.Icon(
+                ft.Icons.VERIFIED_USER_ROUNDED,
+                size=16,
+                color=ft.Colors.TEAL_200 if state["is_virtual"] else ft.Colors.AMBER_200,
+            )
+        else:
+            appbar_account_chip.label = ft.Text("Não Autenticado", size=11)
+            appbar_account_chip.bgcolor = ft.Colors.SURFACE_CONTAINER_HIGHEST
+            appbar_account_chip.leading = ft.Icon(
+                ft.Icons.ACCOUNT_CIRCLE_ROUNDED,
+                size=16,
+                color=ft.Colors.GREY_400,
+            )
+
         bal = state["balance"]
         curr = state["currency"]
         appbar_balance_chip.label = ft.Text(
-            f"Saldo: {curr} {bal:,.2f}",
+            f"Saldo: {format_currency(bal, curr)}",
             size=11,
             weight=ft.FontWeight.BOLD,
         )
@@ -256,40 +310,118 @@ async def main(page: ft.Page) -> None:
     # VIEW 1: DASHBOARD GERAL
     # =========================================================================
     dash_balance_text = ft.Text(
-        "USD --",
+        format_currency(0.0),
         size=26,
         weight=ft.FontWeight.BOLD,
         color=ft.Colors.GREEN_400,
     )
-    dash_account_id_text = ft.Text("Conta: Não consultada", size=12, color=ft.Colors.GREY_400)
+    dash_account_id_text = ft.Text("Titular: Standby | ID: --", size=12, color=ft.Colors.GREY_400)
+    dash_account_badge = ft.Container(
+        content=ft.Text("Standby", size=10, weight=ft.FontWeight.BOLD, color=ft.Colors.GREY_300),
+        bgcolor=ft.Colors.SURFACE_CONTAINER_HIGH,
+        border_radius=4,
+        padding=ft.padding.Padding(6, 2, 6, 2),
+    )
     dash_ws_text = ft.Text("Desconectado", size=20, weight=ft.FontWeight.BOLD, color=ft.Colors.AMBER_400)
-    dash_ws_subtext = ft.Text("App ID: 1089 | wss://ws.derivws.com", size=12, color=ft.Colors.GREY_400)
+    from core.config import settings
+    dash_ws_subtext = ft.Text(f"App ID: {settings.deriv_app_id} | Options WS", size=12, color=ft.Colors.GREY_400)
     dash_backend_text = ft.Text("Detectando...", size=20, weight=ft.FontWeight.BOLD, color=ft.Colors.CYAN_400)
     dash_backend_subtext = ft.Text("SQLite: trading_memory.db", size=12, color=ft.Colors.GREY_400)
     dash_session_profit_text = ft.Text("USD +0.00", size=20, weight=ft.FontWeight.BOLD, color=ft.Colors.WHITE)
     dash_session_subtext = ft.Text("0 ciclos | 0W - 0L", size=12, color=ft.Colors.GREY_400)
 
+    async def action_authenticate(e: Any = None) -> bool:
+        log_event("Iniciando autenticação via WebSocket com credenciais do .env...", "INFO")
+        try:
+            auth_data = await api_client.authorize()
+            state["loginid"] = str(auth_data.get("loginid", "--"))
+            state["fullname"] = str(auth_data.get("fullname", "--"))
+            state["is_virtual"] = bool(auth_data.get("is_virtual", True))
+            state["balance"] = float(auth_data.get("balance", state["balance"]))
+            state["currency"] = str(auth_data.get("currency", "USD"))
+            state["is_authenticated"] = True
+            state["ws_connected"] = True
+
+            dash_balance_text.value = format_currency(state["balance"], state["currency"])
+            dash_account_id_text.value = f"Titular: {state['fullname']} | ID: {state['loginid']}"
+            dash_ws_text.value = "Conectado"
+            dash_ws_text.color = ft.Colors.GREEN_400
+            dash_backend_text.value = "FastAPI :8000" if api_client.mode == "api" else "Serviços Diretos"
+
+            if state["is_virtual"]:
+                dash_account_badge.content = ft.Text(
+                    "Conta Demo (Virtual)",
+                    size=10,
+                    weight=ft.FontWeight.BOLD,
+                    color=ft.Colors.TEAL_200,
+                )
+                dash_account_badge.bgcolor = ft.Colors.TEAL_900
+            else:
+                dash_account_badge.content = ft.Text(
+                    "Conta Real",
+                    size=10,
+                    weight=ft.FontWeight.BOLD,
+                    color=ft.Colors.AMBER_200,
+                )
+                dash_account_badge.bgcolor = ft.Colors.AMBER_900
+
+            dash_ws_subtext.value = f"App ID: {settings.deriv_app_id} | Options WS"
+            update_header_status()
+
+            acc_type_label = "Conta Demo" if state["is_virtual"] else "Conta Real"
+            log_event(
+                f"Autorização confirmada com sucesso: {state['loginid']} ({acc_type_label}) | Saldo: {format_currency(state['balance'], state['currency'])}",
+                "SUCCESS",
+            )
+            notify(f"Autenticado com sucesso: {state['loginid']} ({acc_type_label})")
+            return True
+        except Exception as exc:
+            state["is_authenticated"] = False
+            state["ws_connected"] = False
+            dash_ws_text.value = "Falha Auth"
+            dash_ws_text.color = ft.Colors.RED_400
+            dash_account_badge.content = ft.Text(
+                "Não Autenticado",
+                size=10,
+                weight=ft.FontWeight.BOLD,
+                color=ft.Colors.RED_200,
+            )
+            dash_account_badge.bgcolor = ft.Colors.RED_900
+            update_header_status()
+            log_event(f"Falha de autenticação junto à Deriv: {exc}", "ERROR")
+            notify(f"Erro ao autenticar: {exc}", is_error=True)
+            return False
+
     async def action_fetch_balance(e: Any = None) -> None:
         log_event("Consultando saldo junto à Deriv API...", "INFO")
         try:
+            if not state["is_authenticated"]:
+                success = await action_authenticate()
+                if not success:
+                    return
+
             bal_data = await api_client.get_balance()
-            state["balance"] = float(bal_data.get("balance", 0.0))
+            state["balance"] = float(bal_data.get("balance", state["balance"]))
             state["currency"] = str(bal_data.get("currency", "USD"))
-            state["loginid"] = str(bal_data.get("loginid", "--"))
+            if bal_data.get("loginid"):
+                state["loginid"] = str(bal_data.get("loginid"))
             state["ws_connected"] = True
 
-            dash_balance_text.value = f"{state['currency']} {state['balance']:,.2f}"
-            dash_account_id_text.value = f"Conta: {state['loginid']} (Ativa)"
+            dash_balance_text.value = format_currency(state["balance"], state["currency"])
+            if state["fullname"] and state["fullname"] != "--":
+                dash_account_id_text.value = f"Titular: {state['fullname']} | ID: {state['loginid']}"
+            else:
+                dash_account_id_text.value = f"Conta: {state['loginid']} (Ativa)"
             dash_ws_text.value = "Conectado"
             dash_ws_text.color = ft.Colors.GREEN_400
             dash_backend_text.value = "FastAPI :8000" if api_client.mode == "api" else "Serviços Diretos"
 
             update_header_status()
             log_event(
-                f"Saldo atualizado: {state['currency']} {state['balance']:,.2f} (ID: {state['loginid']})",
+                f"Saldo atualizado: {format_currency(state['balance'], state['currency'])} (ID: {state['loginid']})",
                 "SUCCESS",
             )
-            notify(f"Saldo atualizado: {state['currency']} {state['balance']:,.2f}")
+            notify(f"Saldo atualizado: {format_currency(state['balance'], state['currency'])}")
         except Exception as exc:
             state["ws_connected"] = False
             dash_ws_text.value = "Falha de Conexão"
@@ -339,8 +471,23 @@ async def main(page: ft.Page) -> None:
                         [
                             ft.Row(
                                 [
-                                    ft.Icon(ft.Icons.ACCOUNT_BALANCE_WALLET_ROUNDED, color=ft.Colors.GREEN_400, size=24),
-                                    ft.Text("Saldo Atual", size=13, weight=ft.FontWeight.W_500, color=ft.Colors.GREY_300),
+                                    ft.Row(
+                                        [
+                                            ft.Icon(
+                                                ft.Icons.ACCOUNT_BALANCE_WALLET_ROUNDED,
+                                                color=ft.Colors.GREEN_400,
+                                                size=24,
+                                            ),
+                                            ft.Text(
+                                                "Saldo & Conta",
+                                                size=13,
+                                                weight=ft.FontWeight.W_500,
+                                                color=ft.Colors.GREY_300,
+                                            ),
+                                        ],
+                                        spacing=6,
+                                    ),
+                                    dash_account_badge,
                                 ],
                                 alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
                             ),
@@ -424,6 +571,11 @@ async def main(page: ft.Page) -> None:
                     ft.Text("Painel de Controle Rápido", size=15, weight=ft.FontWeight.BOLD),
                     ft.Row(
                         [
+                            ft.FilledButton(
+                                "Autenticar Conta",
+                                icon=ft.Icons.LOCK_OPEN_ROUNDED,
+                                on_click=action_authenticate,
+                            ),
                             ft.FilledButton(
                                 "Consultar Saldo",
                                 icon=ft.Icons.ACCOUNT_BALANCE_WALLET_ROUNDED,
@@ -1411,6 +1563,7 @@ async def main(page: ft.Page) -> None:
                 [
                     appbar_api_mode,
                     appbar_ws_status,
+                    appbar_account_chip,
                     appbar_balance_chip,
                     ft.IconButton(
                         icon=ft.Icons.REFRESH_ROUNDED,
@@ -1440,7 +1593,8 @@ async def main(page: ft.Page) -> None:
 
     # Carga assíncrona inicial de dados
     async def initial_load() -> None:
-        await action_fetch_balance()
+        # Dispara obrigatoriamente a autenticação no WebSocket via .env antes de ticks e saldos
+        await action_authenticate()
         await load_symbols_into_ui()
         await update_tick_view("1HZ100V")
         await load_contracts_for_symbol("1HZ100V")

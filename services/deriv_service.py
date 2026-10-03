@@ -154,19 +154,37 @@ class DerivService:
             raise RuntimeError(f"Erro ao comunicar com a Deriv API: {exc}")
 
     async def get_balance(self) -> dict:
-        """Consulta o saldo da conta na Deriv API, retornando loginid, balance e currency."""
-        if not self.is_alive:
-            try:
-                await self.connect()
-            except Exception as exc:
-                raise RuntimeError(
-                    f"Serviço Deriv desconectado. Não foi possível restabelecer conexão: {exc}"
-                )
+        """Consulta o saldo da conta na Deriv API, garantindo autorização prévia para evitar erro 'Please log in'."""
+        if not self.is_alive or not getattr(self.client, "_auth_response", None):
+            if self.token:
+                try:
+                    auth_res = await self.authorize()
+                    return {
+                        "loginid": auth_res.get("loginid", ""),
+                        "balance": auth_res.get("balance", 0.0),
+                        "currency": auth_res.get("currency", "USD"),
+                    }
+                except Exception as exc:
+                    logger.warning(f"Tentativa de autorização prévia em get_balance falhou: {exc}")
+            if not self.is_alive:
+                try:
+                    await self.connect()
+                except Exception as exc:
+                    raise RuntimeError(
+                        f"Serviço Deriv desconectado. Não foi possível restabelecer conexão: {exc}"
+                    )
 
         response = await self.send({"balance": 1})
 
         if "error" in response:
             error_msg = response["error"].get("message", "Erro desconhecido retornado pela API")
+            if "log in" in error_msg.lower() or "authorization" in error_msg.lower():
+                auth_res = await self.authorize()
+                return {
+                    "loginid": auth_res.get("loginid", ""),
+                    "balance": auth_res.get("balance", 0.0),
+                    "currency": auth_res.get("currency", "USD"),
+                }
             raise RuntimeError(f"Erro ao consultar saldo na Deriv API: {error_msg}")
 
         balance_data = response.get("balance", {})
@@ -191,6 +209,42 @@ class DerivService:
         if not auth_token or not auth_token.strip():
             raise PermissionError("Autenticação necessária: token não configurado ou vazio.")
 
+        # Se for um token PAT (pat_...), assegura conexão no canal OTP autenticado
+        if auth_token.strip().startswith("pat_"):
+            try:
+                import httpx
+
+                headers = {
+                    "Authorization": f"Bearer {auth_token.strip()}",
+                    "Deriv-App-ID": str(self.app_id).strip(),
+                }
+                async with httpx.AsyncClient(timeout=8.0) as http_client:
+                    resp_acc = await http_client.get(
+                        "https://api.derivws.com/trading/v1/options/accounts",
+                        headers=headers,
+                    )
+                    if resp_acc.status_code == 200:
+                        accounts_data = resp_acc.json().get("data", [])
+                        if accounts_data:
+                            target_acc = next(
+                                (a for a in accounts_data if a.get("account_type") == "demo"),
+                                accounts_data[0],
+                            )
+                            acc_id = target_acc.get("account_id")
+                            resp_otp = await http_client.post(
+                                f"https://api.derivws.com/trading/v1/options/accounts/{acc_id}/otp",
+                                headers=headers,
+                            )
+                            if resp_otp.status_code == 200:
+                                ws_otp_url = resp_otp.json().get("data", {}).get("url")
+                                if ws_otp_url:
+                                    if self.client.is_alive:
+                                        await self.client.disconnect()
+                                    self.client.ws_url = ws_otp_url
+                                    await self.client.connect()
+            except Exception as exc:
+                logger.warning(f"Tentativa de handshake PAT via OTP em DerivService falhou: {exc}")
+
         if not self.is_alive:
             await self.connect()
 
@@ -203,14 +257,23 @@ class DerivService:
 
         auth_data = response.get("authorize", {})
         loginid = auth_data.get("loginid", "")
+        fullname = (
+            auth_data.get("fullname")
+            or f"{auth_data.get('first_name', '')} {auth_data.get('last_name', '')}".strip()
+            or f"Titular da Conta {loginid}"
+        )
         is_virtual = bool(auth_data.get("is_virtual", 0))
         balance = float(auth_data.get("balance", 0.0))
         currency = str(auth_data.get("currency", "USD"))
         email = auth_data.get("email")
         scopes = auth_data.get("scopes", [])
 
+        # Salva resposta de autorização no client para manter a sessão autenticada
+        self.client._auth_response = response
+
         return {
             "loginid": loginid,
+            "fullname": fullname,
             "is_virtual": is_virtual,
             "account_type": "Demo (Virtual)" if is_virtual else "Real",
             "balance": balance,
