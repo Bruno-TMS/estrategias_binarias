@@ -7,13 +7,14 @@ from typing import Any
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel, Field
 
-from api.deps import get_deriv_service, get_memory_service
+from api.deps import get_deriv_service, get_memory_service, get_time_operations
 from deriv.ai_optimizer import AIOptimizer
 from deriv.analises_tecnicas import IchimokuIndicator
 from deriv.backtesting import BacktestEngine
 from deriv.trader_bot import DerivedBot
 from services.deriv_service import DerivService
 from services.memory_service import MemoryService
+from services.time_operations import TimeOperations
 
 logger = logging.getLogger(__name__)
 
@@ -188,6 +189,29 @@ async def verify_auth(service: DerivService = Depends(get_deriv_service)):
         )
     except Exception as exc:
         logger.error(f"Erro inesperado no endpoint de verificação de autenticação: {exc}")
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Serviço Deriv temporariamente indisponível.",
+        )
+
+
+@router.get("/time", summary="Consultar tempo oficial do servidor Deriv (UTC)")
+async def get_server_time(time_ops: TimeOperations = Depends(get_time_operations)):
+    """Consulta o tempo oficial da Deriv via WebSocket ('{"time": 1}') e retorna o Epoch e datetime UTC."""
+    try:
+        data = await time_ops.get_server_time()
+        return {
+            "status": "success",
+            "data": data,
+        }
+    except (RuntimeError, ConnectionError) as exc:
+        logger.error(f"Erro ao obter tempo oficial da Deriv: {exc}")
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=str(exc),
+        )
+    except Exception as exc:
+        logger.error(f"Erro inesperado no endpoint de tempo: {exc}")
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="Serviço Deriv temporariamente indisponível.",

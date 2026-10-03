@@ -9,6 +9,7 @@ import logging
 import sys
 from typing import Any
 
+from services.time_operations import TimeOperations, time_operations
 from ui_app import DerivApiClient, format_currency, main, start_app
 
 logger = logging.getLogger("deriv.modulo_grafico")
@@ -54,7 +55,15 @@ class GraficoGUI:
             shutdown_event.set()
 
 
-__all__ = ["GraficoGUI", "main", "start_app", "DerivApiClient", "format_currency"]
+__all__ = [
+    "GraficoGUI",
+    "main",
+    "start_app",
+    "DerivApiClient",
+    "format_currency",
+    "TimeOperations",
+    "time_operations",
+]
 
 if __name__ == "__main__":
     start_app()

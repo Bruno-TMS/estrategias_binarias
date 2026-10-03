@@ -140,6 +140,12 @@ class DerivService:
             await self.client.disconnect()
         finally:
             self._reset()
+            try:
+                from services.time_operations import time_operations
+
+                time_operations.reset_login()
+            except Exception:
+                pass
 
     async def send(self, payload: dict) -> dict:
         """Envia requisição genérica para a Deriv API via WebSocket."""
@@ -153,6 +159,30 @@ class DerivService:
         except Exception as exc:
             logger.error(f"Erro na requisição para Deriv API: {exc}")
             raise RuntimeError(f"Erro ao comunicar com a Deriv API: {exc}")
+
+    async def get_server_time(self) -> int:
+        """Consulta o relógio oficial do servidor Deriv via WebSocket ('{"time": 1}').
+
+        Retorna o timestamp Epoch (int) retornado pela Deriv API.
+        """
+        if not self.is_alive:
+            try:
+                await self.connect()
+            except Exception as exc:
+                raise RuntimeError(
+                    f"Serviço Deriv desconectado. Não foi possível conectar para obter o tempo: {exc}"
+                )
+
+        response = await self.send({"time": 1})
+        if "error" in response:
+            err_msg = response["error"].get("message", "Erro desconhecido ao consultar tempo")
+            raise RuntimeError(f"Erro ao consultar tempo na Deriv API: {err_msg}")
+
+        epoch = response.get("time")
+        if epoch is None:
+            raise RuntimeError(f"Resposta inválida de tempo recebida da Deriv API: {response}")
+
+        return int(epoch)
 
     async def get_balance(self) -> dict:
         """Consulta o saldo da conta na Deriv API, garantindo autorização prévia para evitar erro 'Please log in'."""
@@ -271,6 +301,14 @@ class DerivService:
 
         # Salva resposta de autorização no client para manter a sessão autenticada
         self.client._auth_response = response
+
+        # Registra timestamp UTC da sessão autenticada
+        try:
+            from services.time_operations import time_operations
+
+            time_operations.register_login()
+        except Exception as exc:
+            logger.debug(f"Não foi possível registrar login em time_operations: {exc}")
 
         return {
             "loginid": loginid,

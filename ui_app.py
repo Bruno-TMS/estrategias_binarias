@@ -200,6 +200,22 @@ class DerivApiClient:
 
         await deriv_service.unsubscribe_all_ticks()
 
+    async def get_server_time(self) -> dict[str, Any]:
+        """Consulta o relógio oficial do servidor Deriv via API REST ou diretamente."""
+        try:
+            async with httpx.AsyncClient(timeout=4.0) as client:
+                resp = await client.get(f"{self.base_url}/deriv/time")
+                if resp.status_code == 200:
+                    self.mode = "api"
+                    return resp.json().get("data", {})
+        except Exception:
+            pass
+
+        self.mode = "direct"
+        from services.time_operations import time_operations
+
+        return await time_operations.get_server_time()
+
 
 async def main(page: ft.Page) -> None:
     """Função principal da interface gráfica Flet."""
@@ -232,6 +248,10 @@ async def main(page: ft.Page) -> None:
         "session_profit": 0.0,
         "session_wins": 0,
         "session_losses": 0,
+        "server_time_utc": "--:--:-- UTC",
+        "server_time_full_utc": "--",
+        "tempo_logado_str": "--",
+        "tempo_atualizacao": 300.0,
     }
 
     # Notificações Toast / SnackBar
@@ -287,6 +307,18 @@ async def main(page: ft.Page) -> None:
         label=ft.Text(f"Saldo: {format_currency(0.0)}", size=11, weight=ft.FontWeight.BOLD),
         bgcolor=ft.Colors.GREEN_900,
     )
+    appbar_clock_chip = ft.Chip(
+        leading=ft.Icon(ft.Icons.SCHEDULE_ROUNDED, size=16, color=ft.Colors.CYAN_200),
+        label=ft.Text("UTC: --:--:--", size=11, weight=ft.FontWeight.W_500),
+        bgcolor=ft.Colors.SURFACE_CONTAINER_HIGHEST,
+        tooltip="Relógio Oficial Deriv (UTC)",
+    )
+    appbar_session_chip = ft.Chip(
+        leading=ft.Icon(ft.Icons.TIMER_ROUNDED, size=16, color=ft.Colors.AMBER_200),
+        label=ft.Text("Sessão: --", size=11, weight=ft.FontWeight.BOLD),
+        bgcolor=ft.Colors.SURFACE_CONTAINER_HIGHEST,
+        tooltip="Tempo Logado na Sessão Ativa",
+    )
 
     def update_header_status() -> None:
         mode_text = "API REST (:8000)" if api_client.mode == "api" else "Serviços Diretos"
@@ -328,6 +360,25 @@ async def main(page: ft.Page) -> None:
             size=11,
             weight=ft.FontWeight.BOLD,
         )
+
+        appbar_clock_chip.label = ft.Text(
+            f"UTC: {state.get('server_time_utc', '--:--:--')}",
+            size=11,
+            weight=ft.FontWeight.W_500,
+            color=ft.Colors.CYAN_100,
+        )
+        if state.get("is_authenticated", False):
+            appbar_session_chip.bgcolor = ft.Colors.AMBER_900
+            appbar_session_chip.label = ft.Text(
+                f"Sessão: {state.get('tempo_logado_str', '--')}",
+                size=11,
+                weight=ft.FontWeight.BOLD,
+                color=ft.Colors.AMBER_100,
+            )
+        else:
+            appbar_session_chip.bgcolor = ft.Colors.SURFACE_CONTAINER_HIGHEST
+            appbar_session_chip.label = ft.Text("Sessão: --", size=11, color=ft.Colors.GREY_400)
+
         page.update()
 
     # =========================================================================
@@ -353,6 +404,212 @@ async def main(page: ft.Page) -> None:
     dash_backend_subtext = ft.Text("SQLite: trading_memory.db", size=12, color=ft.Colors.GREY_400)
     dash_session_profit_text = ft.Text("USD +0.00", size=20, weight=ft.FontWeight.BOLD, color=ft.Colors.WHITE)
     dash_session_subtext = ft.Text("0 ciclos | 0W - 0L", size=12, color=ft.Colors.GREY_400)
+
+    # Controles de Sincronização Temporal e Tempo Logado
+    dash_server_time_text = ft.Text(
+        "--:--:-- UTC",
+        size=22,
+        weight=ft.FontWeight.BOLD,
+        color=ft.Colors.CYAN_300,
+    )
+    dash_tempo_logado_text = ft.Text(
+        "--",
+        size=22,
+        weight=ft.FontWeight.BOLD,
+        color=ft.Colors.AMBER_300,
+    )
+    dash_sync_interval_text = ft.Text(
+        "Sincronização: a cada 5.0m (300s)",
+        size=11,
+        color=ft.Colors.GREY_400,
+    )
+    dash_session_start_text = ft.Text(
+        "Sessão: Não iniciada",
+        size=11,
+        color=ft.Colors.GREY_400,
+    )
+    dash_session_badge = ft.Container(
+        content=ft.Text("Standby", size=10, weight=ft.FontWeight.BOLD, color=ft.Colors.GREY_300),
+        bgcolor=ft.Colors.SURFACE_CONTAINER_HIGH,
+        border_radius=4,
+        padding=ft.padding.Padding(6, 2, 6, 2),
+    )
+
+    # Controles da Aba de Ajustes (Settings)
+    from services.time_operations import time_operations
+
+    settings_interval_dropdown = ft.Dropdown(
+        label="Intervalo de Atualização do Tempo Logado",
+        options=[
+            ft.DropdownOption("60", "1 Minuto (60s)"),
+            ft.DropdownOption("180", "3 Minutos (180s)"),
+            ft.DropdownOption("300", "5 Minutos (300s) — Padrão"),
+            ft.DropdownOption("600", "10 Minutos (600s)"),
+            ft.DropdownOption("900", "15 Minutos (900s)"),
+        ],
+        value="300",
+        width=380,
+    )
+    settings_interval_badge = ft.Text(
+        "Intervalo Atual: 5.0 min (300s)",
+        size=13,
+        weight=ft.FontWeight.BOLD,
+        color=ft.Colors.CYAN_300,
+    )
+    settings_server_time_detail = ft.Text(
+        "Relógio Deriv: Aguardando sincronização...",
+        size=13,
+        color=ft.Colors.GREY_300,
+    )
+    settings_session_start_detail = ft.Text(
+        "Início da Sessão: Não autenticado",
+        size=13,
+        color=ft.Colors.GREY_300,
+    )
+    settings_tempo_logado_detail = ft.Text(
+        "Duração Acumulada: --",
+        size=13,
+        weight=ft.FontWeight.BOLD,
+        color=ft.Colors.AMBER_300,
+    )
+
+    def update_time_displays() -> None:
+        srv_time = state.get("server_time_utc", "--:--:-- UTC")
+        srv_full = state.get("server_time_full_utc", "--")
+        t_logado = state.get("tempo_logado_str", "--")
+
+        appbar_clock_chip.label = ft.Text(
+            f"UTC: {srv_time}",
+            size=11,
+            weight=ft.FontWeight.W_500,
+            color=ft.Colors.CYAN_100,
+        )
+        dash_server_time_text.value = srv_time
+        settings_server_time_detail.value = f"Relógio Deriv (UTC): {srv_full or srv_time}"
+
+        if state.get("is_authenticated") and time_operations.is_logged_in:
+            appbar_session_chip.bgcolor = ft.Colors.AMBER_900
+            appbar_session_chip.label = ft.Text(
+                f"Sessão: {t_logado}",
+                size=11,
+                weight=ft.FontWeight.BOLD,
+                color=ft.Colors.AMBER_100,
+            )
+            dash_tempo_logado_text.value = t_logado
+            dash_session_badge.content = ft.Text(
+                "Sessão Ativa",
+                size=10,
+                weight=ft.FontWeight.BOLD,
+                color=ft.Colors.GREEN_200,
+            )
+            dash_session_badge.bgcolor = ft.Colors.GREEN_900
+            settings_tempo_logado_detail.value = f"Duração Acumulada: {t_logado}"
+
+            if time_operations.inicio_sessao_utc:
+                dt_str = time_operations.inicio_sessao_utc.strftime("%H:%M:%S UTC")
+                dt_full = time_operations.inicio_sessao_utc.strftime("%Y-%m-%d %H:%M:%S UTC")
+                dash_session_start_text.value = f"Início: {dt_str}"
+                settings_session_start_detail.value = f"Início da Sessão: {dt_full}"
+        else:
+            appbar_session_chip.bgcolor = ft.Colors.SURFACE_CONTAINER_HIGHEST
+            appbar_session_chip.label = ft.Text("Sessão: --", size=11, color=ft.Colors.GREY_400)
+            dash_tempo_logado_text.value = "--"
+            dash_session_badge.content = ft.Text(
+                "Standby",
+                size=10,
+                weight=ft.FontWeight.BOLD,
+                color=ft.Colors.GREY_400,
+            )
+            dash_session_badge.bgcolor = ft.Colors.SURFACE_CONTAINER_HIGH
+            dash_session_start_text.value = "Sessão: Não iniciada"
+            settings_session_start_detail.value = "Início da Sessão: Não autenticado"
+            settings_tempo_logado_detail.value = "Duração Acumulada: --"
+
+        sec = int(time_operations.tempo_atualizacao)
+        mins = sec / 60.0
+        dash_sync_interval_text.value = f"Sincronização: a cada {mins:.1f}m ({sec}s)"
+        settings_interval_badge.value = f"Intervalo Atual: {mins:.1f} min ({sec}s)"
+        page.update()
+
+    sync_trigger_event = asyncio.Event()
+
+    async def on_interval_dropdown_change(e: Any = None) -> None:
+        try:
+            val_sec = float(settings_interval_dropdown.value or "300")
+            time_operations.tempo_atualizacao = val_sec
+            state["tempo_atualizacao"] = val_sec
+            mins = val_sec / 60.0
+            log_event(
+                f"Intervalo de atualização do tempo logado alterado para {mins:.1f} min ({int(val_sec)}s).",
+                "INFO",
+            )
+            notify(f"Intervalo de sincronização ajustado para {mins:.1f} min!")
+            sync_trigger_event.set()
+            update_time_displays()
+        except Exception as exc:
+            log_event(f"Erro ao alterar intervalo: {exc}", "ERROR")
+            notify(f"Erro ao alterar intervalo: {exc}", is_error=True)
+
+    async def action_sync_server_time(e: Any = None) -> None:
+        log_event("Sincronizando relógio oficial Deriv via WebSocket...", "INFO")
+        try:
+            res = await time_operations.get_server_time(api_client)
+            dt_utc = res.get("datetime_utc")
+            if dt_utc:
+                state["server_time_utc"] = dt_utc.strftime("%H:%M:%S UTC")
+                state["server_time_full_utc"] = res.get("formatted", "")
+            update_time_displays()
+            log_event(
+                f"Relógio Deriv sincronizado: {res.get('formatted')} (Epoch: {res.get('epoch')})",
+                "SUCCESS",
+            )
+            notify("Relógio Deriv sincronizado com sucesso!")
+        except Exception as exc:
+            log_event(f"Erro ao sincronizar relógio: {exc}", "WARNING")
+            notify(f"Erro ao sincronizar relógio: {exc}", is_error=True)
+
+    async def action_restore_default_interval(e: Any = None) -> None:
+        settings_interval_dropdown.value = "300"
+        await on_interval_dropdown_change()
+
+    settings_interval_dropdown.on_change = lambda e: page.run_task(
+        lambda: on_interval_dropdown_change(e)
+    )
+
+    async def server_time_and_session_loop() -> None:
+        """Loop contínuo em background para sincronização temporal e tempo logado."""
+        last_sync_time = 0.0
+        while True:
+            try:
+                now_mono = asyncio.get_event_loop().time()
+                current_interval = float(time_operations.tempo_atualizacao)
+
+                if (now_mono - last_sync_time) >= current_interval or last_sync_time == 0.0:
+                    try:
+                        res = await time_operations.get_server_time(api_client)
+                        dt_utc = res.get("datetime_utc")
+                        if dt_utc:
+                            state["server_time_utc"] = dt_utc.strftime("%H:%M:%S UTC")
+                            state["server_time_full_utc"] = res.get("formatted", "")
+                        last_sync_time = now_mono
+                    except Exception as exc:
+                        logger.debug(f"Erro ao sincronizar tempo com Deriv: {exc}")
+
+                if state.get("is_authenticated") and time_operations.is_logged_in:
+                    state["tempo_logado_str"] = time_operations.format_tempo_logado()
+                else:
+                    state["tempo_logado_str"] = "--"
+
+                update_time_displays()
+            except Exception as exc:
+                logger.debug(f"Exceção no loop temporal: {exc}")
+
+            try:
+                await asyncio.wait_for(sync_trigger_event.wait(), timeout=1.0)
+                sync_trigger_event.clear()
+                last_sync_time = 0.0
+            except asyncio.TimeoutError:
+                pass
 
     # Controles do Monitor de Ticks em Tempo Real (Dashboard)
     dash_live_symbol_chip = ft.Chip(
@@ -756,6 +1013,74 @@ async def main(page: ft.Page) -> None:
             spacing=16,
         )
 
+        time_sync_card = ft.Container(
+            content=ft.Column(
+                [
+                    ft.Row(
+                        [
+                            ft.Row(
+                                [
+                                    ft.Icon(ft.Icons.ACCESS_TIME_ROUNDED, color=ft.Colors.CYAN_400, size=22),
+                                    ft.Text("Sincronização Temporal & Sessão Ativa", size=15, weight=ft.FontWeight.BOLD),
+                                ],
+                                spacing=8,
+                            ),
+                            ft.Row(
+                                [
+                                    dash_session_badge,
+                                    ft.OutlinedButton(
+                                        "Sincronizar Relógio",
+                                        icon=ft.Icons.SYNC_ROUNDED,
+                                        on_click=action_sync_server_time,
+                                    ),
+                                    ft.OutlinedButton(
+                                        "Configurar Intervalo",
+                                        icon=ft.Icons.SETTINGS_ROUNDED,
+                                        on_click=lambda _: switch_tab(3),
+                                    ),
+                                ],
+                                spacing=8,
+                                wrap=True,
+                            ),
+                        ],
+                        alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
+                        wrap=True,
+                    ),
+                    ft.Row(
+                        [
+                            ft.Container(
+                                content=ft.Column(
+                                    [
+                                        ft.Text("Relógio Oficial Deriv (UTC)", size=12, color=ft.Colors.GREY_400),
+                                        dash_server_time_text,
+                                        dash_sync_interval_text,
+                                    ],
+                                    spacing=2,
+                                ),
+                                expand=True,
+                            ),
+                            ft.Container(
+                                content=ft.Column(
+                                    [
+                                        ft.Text("Tempo Logado na Sessão", size=12, color=ft.Colors.GREY_400),
+                                        dash_tempo_logado_text,
+                                        dash_session_start_text,
+                                    ],
+                                    spacing=2,
+                                ),
+                                expand=True,
+                            ),
+                        ],
+                        spacing=16,
+                    ),
+                ],
+                spacing=12,
+            ),
+            bgcolor=ft.Colors.SURFACE_CONTAINER_HIGHEST,
+            padding=16,
+            border_radius=12,
+        )
+
         live_ticker_card = ft.Container(
             content=ft.Column(
                 [
@@ -932,6 +1257,7 @@ async def main(page: ft.Page) -> None:
                         spacing=2,
                     ),
                     kpi_row,
+                    time_sync_card,
                     live_ticker_card,
                     quick_actions_card,
                     log_card,
@@ -1787,12 +2113,125 @@ async def main(page: ft.Page) -> None:
             expand=True,
         )
 
+    # =========================================================================
+    # VIEW 4: AJUSTES (SETTINGS & CONFIGURAÇÃO TEMPORAL)
+    # =========================================================================
+    def build_settings_view() -> ft.Control:
+        interval_config_card = ft.Container(
+            content=ft.Column(
+                [
+                    ft.Row(
+                        [
+                            ft.Row(
+                                [
+                                    ft.Icon(ft.Icons.TUNE_ROUNDED, size=22, color=ft.Colors.CYAN_300),
+                                    ft.Text(
+                                        "Intervalo de Atualização do Tempo Logado",
+                                        size=16,
+                                        weight=ft.FontWeight.BOLD,
+                                    ),
+                                ],
+                                spacing=8,
+                            ),
+                            settings_interval_badge,
+                        ],
+                        alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
+                        wrap=True,
+                    ),
+                    ft.Text(
+                        "Frequência periódica de sincronização do relógio oficial da Deriv API (UTC) e recálculo da sessão ativa.",
+                        size=13,
+                        color=ft.Colors.GREY_400,
+                    ),
+                    ft.Divider(height=1),
+                    ft.Row(
+                        [
+                            settings_interval_dropdown,
+                            ft.FilledButton(
+                                "Restaurar Padrão (5m)",
+                                icon=ft.Icons.RESTORE_ROUNDED,
+                                on_click=action_restore_default_interval,
+                            ),
+                            ft.FilledButton(
+                                "Sincronizar Agora",
+                                icon=ft.Icons.SYNC_ROUNDED,
+                                bgcolor=ft.Colors.CYAN_700,
+                                on_click=action_sync_server_time,
+                            ),
+                        ],
+                        spacing=12,
+                        wrap=True,
+                    ),
+                ],
+                spacing=14,
+            ),
+            bgcolor=ft.Colors.SURFACE_CONTAINER_HIGHEST,
+            padding=20,
+            border_radius=12,
+        )
+
+        diagnostics_card = ft.Container(
+            content=ft.Column(
+                [
+                    ft.Row(
+                        [
+                            ft.Icon(ft.Icons.FACT_CHECK_ROUNDED, size=22, color=ft.Colors.AMBER_400),
+                            ft.Text(
+                                "Auditoria & Diagnóstico Temporal (UTC)",
+                                size=16,
+                                weight=ft.FontWeight.BOLD,
+                            ),
+                        ],
+                        spacing=8,
+                    ),
+                    ft.Divider(height=1),
+                    settings_server_time_detail,
+                    settings_session_start_detail,
+                    settings_tempo_logado_detail,
+                    ft.Text(
+                        "Tratamento de Timezone: timezone.utc estrito (Padrão ISO 8601)",
+                        size=12,
+                        color=ft.Colors.GREY_400,
+                    ),
+                ],
+                spacing=12,
+            ),
+            bgcolor=ft.Colors.SURFACE_CONTAINER_HIGHEST,
+            padding=20,
+            border_radius=12,
+        )
+
+        return ft.Container(
+            content=ft.Column(
+                [
+                    ft.Column(
+                        [
+                            ft.Text("Ajustes & Configurações", size=22, weight=ft.FontWeight.BOLD),
+                            ft.Text(
+                                "Gerencie os parâmetros temporais, frequência de atualização em tempo real e preferências operacionais.",
+                                size=13,
+                                color=ft.Colors.GREY_400,
+                            ),
+                        ],
+                        spacing=2,
+                    ),
+                    interval_config_card,
+                    diagnostics_card,
+                ],
+                spacing=18,
+                expand=True,
+            ),
+            padding=20,
+            expand=True,
+        )
+
     # --- Montagem dos Containers e Navegação ---
     v_dashboard = build_dashboard_view()
     v_catalog = build_catalog_view()
     v_autorun = build_autorun_view()
+    v_settings = build_settings_view()
 
-    views = [v_dashboard, v_catalog, v_autorun]
+    views = [v_dashboard, v_catalog, v_autorun, v_settings]
     active_view_container = ft.Container(content=views[0], expand=True)
 
     def switch_tab(index: int) -> None:
@@ -1825,6 +2264,11 @@ async def main(page: ft.Page) -> None:
                 selected_icon=ft.Icons.SMART_TOY_ROUNDED,
                 label="Auto-Run",
             ),
+            ft.NavigationRailDestination(
+                icon=ft.Icons.SETTINGS_OUTLINED,
+                selected_icon=ft.Icons.SETTINGS_ROUNDED,
+                label="Ajustes",
+            ),
         ],
         on_change=on_navigation_change,
     )
@@ -1847,6 +2291,8 @@ async def main(page: ft.Page) -> None:
                 [
                     appbar_api_mode,
                     appbar_ws_status,
+                    appbar_clock_chip,
+                    appbar_session_chip,
                     appbar_account_chip,
                     appbar_balance_chip,
                     ft.IconButton(
@@ -1877,6 +2323,8 @@ async def main(page: ft.Page) -> None:
 
     # Carga assíncrona inicial de dados
     async def initial_load() -> None:
+        # Inicia loop contínuo de sincronização do relógio Deriv e tempo logado
+        page.run_task(server_time_and_session_loop)
         # Dispara obrigatoriamente a autenticação no WebSocket via .env antes de ticks e saldos
         await action_authenticate()
         await load_symbols_into_ui()
