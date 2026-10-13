@@ -100,11 +100,39 @@ class DerivService:
             ws_url=settings.deriv_ws_url,
         )
         self.connected_at: datetime | None = None
+        self._dt_login: datetime | None = None
         self._latest_ticks: dict[str, dict] = {}
         self._active_subscriptions: dict[str, dict[str, Any]] = {}
 
         # Registra listener global para manter o cache do último tick atualizado
         self.client.subscribe(self._on_stream_message)
+
+    @property
+    def dt_login(self) -> datetime | None:
+        """Objeto datetime em UTC registrado no exato instante da autenticação."""
+        return self._dt_login
+
+    @property
+    def tempo_login(self) -> datetime | None:
+        """Alias para dt_login (momento da autenticação bem-sucedida em UTC)."""
+        return self._dt_login
+
+    @property
+    def tempo_logado(self) -> str:
+        """Retorna o tempo decorrido desde a autenticação no formato '0d 0h 0m'.
+
+        Calcula em tempo real a diferença entre datetime.now(timezone.utc) e _dt_login.
+        Retorna '--' se não autenticado.
+        """
+        if self._dt_login is None:
+            return "--"
+        now_utc = datetime.now(timezone.utc)
+        diff = now_utc - self._dt_login
+        total_seconds = max(0, int(diff.total_seconds()))
+        days = total_seconds // 86400
+        hours = (total_seconds % 86400) // 3600
+        minutes = (total_seconds % 3600) // 60
+        return f"{days}d {hours}h {minutes}m"
 
     @property
     def is_alive(self) -> bool:
@@ -241,6 +269,7 @@ class DerivService:
             raise PermissionError("Autenticação necessária: token não configurado ou vazio.")
 
         # Se for um token PAT (pat_...), assegura conexão no canal OTP autenticado
+        pat_account: dict[str, Any] | None = None
         if auth_token.strip().startswith("pat_"):
             try:
                 import httpx
@@ -273,8 +302,32 @@ class DerivService:
                                         await self.client.disconnect()
                                     self.client.ws_url = ws_otp_url
                                     await self.client.connect()
+                                    pat_account = target_acc
             except Exception as exc:
                 logger.warning(f"Tentativa de handshake PAT via OTP em DerivService falhou: {exc}")
+
+        # Canal OTP já é autenticado: 'authorize' não existe nele (UnknownMethod).
+        if pat_account is not None and self.is_alive:
+            self._dt_login = datetime.now(timezone.utc)
+            self._tempo_login = self._dt_login
+            loginid = str(pat_account.get("account_id", ""))
+            is_virtual = pat_account.get("account_type") == "demo"
+            try:
+                from services.time_operations import time_operations
+
+                time_operations.register_login(self._dt_login)
+            except Exception as exc:
+                logger.debug(f"Não foi possível registrar login em time_operations: {exc}")
+            return {
+                "loginid": loginid,
+                "fullname": f"Titular da Conta {loginid}",
+                "is_virtual": is_virtual,
+                "account_type": "Demo (Virtual)" if is_virtual else "Real",
+                "balance": float(pat_account.get("balance", 0.0) or 0.0),
+                "currency": str(pat_account.get("currency", "USD")),
+                "email": None,
+                "scopes": [],
+            }
 
         if not self.is_alive:
             await self.connect()
@@ -301,12 +354,14 @@ class DerivService:
 
         # Salva resposta de autorização no client para manter a sessão autenticada
         self.client._auth_response = response
+        self._dt_login = datetime.now(timezone.utc)
+        self._tempo_login = self._dt_login
 
         # Registra timestamp UTC da sessão autenticada
         try:
             from services.time_operations import time_operations
 
-            time_operations.register_login()
+            time_operations.register_login(self._dt_login)
         except Exception as exc:
             logger.debug(f"Não foi possível registrar login em time_operations: {exc}")
 
@@ -804,4 +859,6 @@ class DerivService:
     def _reset(self) -> None:
         """Limpa estados internos ao desconectar."""
         self.connected_at = None
+        self._dt_login = None
+        self._tempo_login = None
         self._active_subscriptions.clear()

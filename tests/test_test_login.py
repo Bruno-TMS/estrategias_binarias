@@ -155,9 +155,12 @@ class TestAuthVerifyEndpoint(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         body = response.json()
         self.assertEqual(body["status"], "success")
-        self.assertEqual(body["data"]["loginid"], "CR554433")
+        self.assertEqual(body["loginid"], "CR554433")
+        self.assertIs(body["is_virtual"], False)
+        self.assertEqual(body["balance"], 250.75)
+        self.assertEqual(body["currency"], "USD")
+        self.assertIn("token_masked", body)
         self.assertEqual(body["data"]["account_type"], "Real")
-        self.assertEqual(body["data"]["balance"], 250.75)
 
     @patch("api.routes.deriv.DerivService.authorize")
     def test_verify_auth_endpoint_unauthorized(self, mock_authorize):
@@ -166,7 +169,30 @@ class TestAuthVerifyEndpoint(unittest.TestCase):
 
         response = self.client.get("/deriv/auth/verify")
         self.assertEqual(response.status_code, 401)
-        self.assertIn("Token inválido", response.json()["detail"])
+        body = response.json()
+        self.assertEqual(body["status"], "error")
+        self.assertIn("Please log in", body["message"])
+
+    @patch("api.routes.deriv.DerivService.authorize")
+    def test_verify_auth_endpoint_header_token_masked(self, mock_authorize):
+        """Token via header é repassado ao serviço e nunca retornado em texto puro."""
+        mock_authorize.return_value = {
+            "loginid": "DOT93552301",
+            "is_virtual": True,
+            "balance": 9991.66,
+            "currency": "USD",
+        }
+        secret = "pat_abcdefghijklmnop85d1"
+        response = self.client.get("/deriv/auth/verify", headers={"X-Deriv-Token": secret})
+        self.assertEqual(response.status_code, 200)
+        mock_authorize.assert_called_once_with(token=secret)
+        body = response.json()
+        self.assertEqual(body["token_masked"], "pat_...85d1")
+        self.assertNotIn(secret, response.text)
+
+    def test_verify_auth_route_in_openapi(self):
+        """A rota deve estar visível no /docs (OpenAPI)."""
+        self.assertIn("/deriv/auth/verify", app.openapi()["paths"])
 
 
 if __name__ == "__main__":

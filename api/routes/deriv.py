@@ -4,7 +4,8 @@ import asyncio
 import logging
 from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, Header, HTTPException, Query, status
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 
 from api.deps import get_deriv_service, get_memory_service, get_time_operations
@@ -166,20 +167,52 @@ async def get_balance(service: DerivService = Depends(get_deriv_service)):
         )
 
 
+def _mask_token(token: str | None) -> str:
+    """Mascara o token (4 primeiros e 4 últimos caracteres) para exibição segura."""
+    if not token or not token.strip():
+        return "[NÃO CONFIGURADO]"
+    clean = token.strip()
+    if len(clean) <= 8:
+        return "***"
+    return f"{clean[:4]}...{clean[-4:]}"
+
+
+AUTH_ERROR_MESSAGE = "Token ausente no .env ou recusado pela Deriv API (Please log in)"
+
+
 @router.get("/auth/verify", summary="Verificar autenticação da conta Deriv")
-async def verify_auth(service: DerivService = Depends(get_deriv_service)):
-    """Verifica as credenciais configuradas na Deriv API executando a chamada authorize."""
+async def verify_auth(
+    x_deriv_token: str | None = Header(
+        default=None,
+        description="Token opcional da Deriv (se omitido, usa DERIV_API_TOKEN do .env)",
+    ),
+    service: DerivService = Depends(get_deriv_service),
+):
+    """Executa o handshake `authorize` na Deriv API e retorna metadados da conta (token mascarado)."""
+    token = (x_deriv_token or "").strip() or None
+    effective_token = token or getattr(service, "token", None)
+    masked = _mask_token(effective_token)
+
     try:
-        auth_data = await service.authorize()
+        auth_data = await service.authorize(token=token)
         return {
             "status": "success",
-            "data": auth_data,
+            "loginid": auth_data.get("loginid"),
+            "is_virtual": auth_data.get("is_virtual"),
+            "balance": auth_data.get("balance"),
+            "currency": auth_data.get("currency"),
+            "token_masked": masked,
+            "data": auth_data,  # compatibilidade com consumidores existentes (UI)
         }
     except PermissionError as exc:
-        logger.warning(f"Falha de autenticação ao verificar credenciais: {exc}")
-        raise HTTPException(
+        logger.warning(f"Falha de autenticação ao verificar credenciais (token {masked}): {exc}")
+        return JSONResponse(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail=str(exc),
+            content={
+                "status": "error",
+                "message": AUTH_ERROR_MESSAGE,
+                "token_masked": masked,
+            },
         )
     except (RuntimeError, ConnectionError) as exc:
         logger.error(f"Erro de conexão ao verificar autenticação Deriv: {exc}")

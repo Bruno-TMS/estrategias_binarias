@@ -102,6 +102,29 @@ class DerivWebSocketClient:
         return True
 
     @property
+    def dt_login(self) -> Any:
+        """Timestamp de login se autenticado via time_operations."""
+        try:
+            from services.time_operations import time_operations
+            return time_operations.inicio_sessao_utc
+        except Exception:
+            return None
+
+    @property
+    def tempo_login(self) -> Any:
+        """Alias para dt_login."""
+        return self.dt_login
+
+    @property
+    def tempo_logado(self) -> str:
+        """Tempo logado acumulado formatado em '0d 0h 0m'."""
+        try:
+            from services.time_operations import time_operations
+            return time_operations.format_tempo_logado()
+        except Exception:
+            return "--"
+
+    @property
     def is_public_mode(self) -> bool:
         """Indica se o endpoint ativo opera em modo de dados públicos."""
         active = self._active_url or self.ws_url
@@ -159,6 +182,11 @@ class DerivWebSocketClient:
             logger.info(
                 f"Conectado ao endpoint de dados públicos ({self._active_url}) sem autorização."
             )
+            return None
+
+        # Canal OTP (PAT) já é autenticado pela URL; 'authorize' não existe nele
+        if "otp=" in (self._active_url or ""):
+            logger.info("Conectado ao canal autenticado via OTP; autorização explícita dispensada.")
             return None
 
         # Em outros endpoints privados, autoriza somente se houver token válido configurado

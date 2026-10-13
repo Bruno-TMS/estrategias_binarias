@@ -14,7 +14,7 @@ from typing import Any, Callable
 
 logger = logging.getLogger("services.time_operations")
 
-DEFAULT_TEMPO_ATUALIZACAO: float = 300.0  # 5 minutos (300 segundos)
+DEFAULT_TEMPO_ATUALIZACAO: float = 60.0  # 1 minuto (60 segundos)
 
 
 class TimeOperations:
@@ -37,7 +37,7 @@ class TimeOperations:
     # -------------------------------------------------------------------------
     @property
     def tempo_atualizacao(self) -> float:
-        """Frequência de sincronização em segundos (default: 300s = 5 minutos)."""
+        """Frequência de sincronização em segundos (default: 60s = 1 minuto)."""
         return self._tempo_atualizacao
 
     @tempo_atualizacao.setter
@@ -86,40 +86,48 @@ class TimeOperations:
                 logger.warning(f"Erro ao executar listener de tempo_atualizacao: {exc}")
 
     # -------------------------------------------------------------------------
-    # Controle: tempo_logado / Sessão Ativa
+    # Controle: tempo_logado (_dt_login) / Sessão Ativa
     # -------------------------------------------------------------------------
     def register_login(self, login_dt: datetime | None = None) -> datetime:
-        """Registra o timestamp UTC da autenticação bem-sucedida."""
+        """Registra o timestamp UTC da autenticação bem-sucedida em _dt_login."""
         if login_dt is None:
-            self._login_time_utc = datetime.now(timezone.utc)
+            self._dt_login = datetime.now(timezone.utc)
         else:
             if login_dt.tzinfo is None:
-                self._login_time_utc = login_dt.replace(tzinfo=timezone.utc)
+                self._dt_login = login_dt.replace(tzinfo=timezone.utc)
             else:
-                self._login_time_utc = login_dt.astimezone(timezone.utc)
+                self._dt_login = login_dt.astimezone(timezone.utc)
 
+        self._login_time_utc = self._dt_login
         logger.info(
-            f"Login registrado em UTC: {self._login_time_utc.strftime('%Y-%m-%d %H:%M:%S UTC')}"
+            f"Login registrado em UTC: {self._dt_login.strftime('%Y-%m-%d %H:%M:%S UTC')}"
         )
-        return self._login_time_utc
+        return self._dt_login
 
     def reset_login(self) -> None:
         """Reseta o timestamp de início da sessão."""
+        self._dt_login = None
         self._login_time_utc = None
+
+    @property
+    def dt_login(self) -> datetime | None:
+        """Retorna o datetime UTC de login (_dt_login)."""
+        return getattr(self, "_dt_login", self._login_time_utc)
 
     @property
     def inicio_sessao_utc(self) -> datetime | None:
         """Retorna o datetime UTC de início da sessão autenticada, ou None."""
-        return self._login_time_utc
+        return getattr(self, "_dt_login", self._login_time_utc)
 
     @property
     def is_logged_in(self) -> bool:
         """Verifica se há sessão autenticada ativa."""
-        return self._login_time_utc is not None
+        return getattr(self, "_dt_login", self._login_time_utc) is not None
 
     def get_tempo_logado(self, current_dt: datetime | None = None) -> timedelta | None:
-        """Calcula a diferença acumulada de sessão como timedelta (agora_utc - inicio_sessao_utc)."""
-        if self._login_time_utc is None:
+        """Calcula a diferença acumulada de sessão como timedelta (agora_utc - _dt_login)."""
+        dt_base = getattr(self, "_dt_login", self._login_time_utc)
+        if dt_base is None:
             return None
         now_utc = current_dt or datetime.now(timezone.utc)
         if now_utc.tzinfo is None:
@@ -127,13 +135,13 @@ class TimeOperations:
         else:
             now_utc = now_utc.astimezone(timezone.utc)
 
-        diff = now_utc - self._login_time_utc
+        diff = now_utc - dt_base
         if diff.total_seconds() < 0:
             return timedelta(seconds=0)
         return diff
 
     def format_tempo_logado(self, current_dt: datetime | None = None) -> str:
-        """Formata o tempo logado no formato estrito '00d 00h 00m 00s'."""
+        """Formata o tempo logado na máscara sem segundos: '0d 0h 0m' (ex: '0d 0h 15m')."""
         td = self.get_tempo_logado(current_dt)
         if td is None:
             return "--"
@@ -141,8 +149,29 @@ class TimeOperations:
         days = total_seconds // 86400
         hours = (total_seconds % 86400) // 3600
         minutes = (total_seconds % 3600) // 60
-        seconds = total_seconds % 60
-        return f"{days:02d}d {hours:02d}h {minutes:02d}m {seconds:02d}s"
+        return f"{days}d {hours}h {minutes}m"
+
+    # -------------------------------------------------------------------------
+    # Relógio UTC Local Nativo em Python (DD/MM/AA HH:MM:SS)
+    # -------------------------------------------------------------------------
+    @staticmethod
+    def get_current_utc_time() -> dict[str, Any]:
+        """Gera o relógio UTC atual diretamente em Python nativo usando datetime.now(timezone.utc).
+
+        Formato pt-BR: 'DD/MM/AA HH:MM:SS' (ex: '12/10/26 20:50:00').
+        Descontinua a dependência de requisições periódicas de socket para horário de servidor.
+        """
+        now_utc = datetime.now(timezone.utc)
+        epoch_val = int(now_utc.timestamp())
+        formatted_ptbr = now_utc.strftime("%d/%m/%y %H:%M:%S")
+        formatted_iso = now_utc.strftime("%Y-%m-%d %H:%M:%S UTC")
+        return {
+            "epoch": epoch_val,
+            "datetime_utc": now_utc,
+            "formatted": formatted_ptbr,
+            "formatted_ptbr": formatted_ptbr,
+            "formatted_utc": formatted_iso,
+        }
 
     # -------------------------------------------------------------------------
     # Relógio do Servidor Deriv (UTC)
@@ -218,13 +247,12 @@ class TimeOperations:
 
     @staticmethod
     def format_seconds_duration(seconds: float | int) -> str:
-        """Formata segundos em '00d 00h 00m 00s'."""
+        """Formata segundos em '0d 0h 0m'."""
         total = max(0, int(seconds))
         days = total // 86400
         hours = (total % 86400) // 3600
         minutes = (total % 3600) // 60
-        s = total % 60
-        return f"{days:02d}d {hours:02d}h {minutes:02d}m {s:02d}s"
+        return f"{days}d {hours}h {minutes}m"
 
 
 # Instância global padrão

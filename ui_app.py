@@ -251,7 +251,7 @@ async def main(page: ft.Page) -> None:
         "server_time_utc": "--:--:-- UTC",
         "server_time_full_utc": "--",
         "tempo_logado_str": "--",
-        "tempo_atualizacao": 300.0,
+        "tempo_atualizacao": 60.0,
     }
 
     # Notificações Toast / SnackBar
@@ -333,7 +333,7 @@ async def main(page: ft.Page) -> None:
         label=ft.Text("Sessão: --", size=11, weight=ft.FontWeight.BOLD, color=ft.Colors.GREY_400),
         bgcolor=ft.Colors.SURFACE_CONTAINER_HIGH,
         border_side=ft.border.BorderSide(1, ft.Colors.OUTLINE_VARIANT),
-        tooltip="Tempo Logado na Sessão Ativa [00d 00h 00m 00s]",
+        tooltip="Tempo Logado na Sessão Ativa [0d 0h 0m]",
     )
 
     def update_header_status() -> None:
@@ -448,11 +448,6 @@ async def main(page: ft.Page) -> None:
         weight=ft.FontWeight.BOLD,
         color=ft.Colors.AMBER_300,
     )
-    dash_sync_interval_text = ft.Text(
-        "Sincronização: a cada 5.0m (300s)",
-        size=11,
-        color=ft.Colors.GREY_400,
-    )
     dash_session_start_text = ft.Text(
         "Sessão: Não iniciada",
         size=11,
@@ -468,24 +463,6 @@ async def main(page: ft.Page) -> None:
     # Controles da Aba de Ajustes (Settings)
     from services.time_operations import time_operations
 
-    settings_interval_dropdown = ft.Dropdown(
-        label="Intervalo de Atualização do Tempo Logado",
-        options=[
-            ft.DropdownOption("60", "1 Minuto (60s)"),
-            ft.DropdownOption("180", "3 Minutos (180s)"),
-            ft.DropdownOption("300", "5 Minutos (300s) — Padrão"),
-            ft.DropdownOption("600", "10 Minutos (600s)"),
-            ft.DropdownOption("900", "15 Minutos (900s)"),
-        ],
-        value="300",
-        width=380,
-    )
-    settings_interval_badge = ft.Text(
-        "Intervalo Atual: 5.0 min (300s)",
-        size=13,
-        weight=ft.FontWeight.BOLD,
-        color=ft.Colors.CYAN_300,
-    )
     settings_server_time_detail = ft.Text(
         "Relógio Deriv: Aguardando sincronização...",
         size=13,
@@ -506,7 +483,7 @@ async def main(page: ft.Page) -> None:
     def update_time_displays() -> None:
         srv_time = state.get("server_time_utc", "--/--/-- --:--:--")
         srv_full = state.get("server_time_full_utc", "--")
-        t_logado = state.get("tempo_logado_str", "00d 00h 00m 00s")
+        t_logado = state.get("tempo_logado_str", "0d 0h 0m")
 
         appbar_clock_chip.label = ft.Text(
             f"{srv_time}",
@@ -556,75 +533,17 @@ async def main(page: ft.Page) -> None:
             settings_session_start_detail.value = "Início da Sessão: Não autenticado"
             settings_tempo_logado_detail.value = "Duração Acumulada: --"
 
-        sec = int(time_operations.tempo_atualizacao)
-        mins = sec / 60.0
-        dash_sync_interval_text.value = f"Sincronização: a cada {mins:.1f}m ({sec}s)"
-        settings_interval_badge.value = f"Intervalo Atual: {mins:.1f} min ({sec}s)"
         page.update()
 
-    sync_trigger_event = asyncio.Event()
-
-    async def on_interval_dropdown_change(e: Any = None) -> None:
-        try:
-            val_sec = float(settings_interval_dropdown.value or "300")
-            time_operations.tempo_atualizacao = val_sec
-            state["tempo_atualizacao"] = val_sec
-            mins = val_sec / 60.0
-            log_event(
-                f"Intervalo de atualização do tempo logado alterado para {mins:.1f} min ({int(val_sec)}s).",
-                "INFO",
-            )
-            notify(f"Intervalo de sincronização ajustado para {mins:.1f} min!")
-            sync_trigger_event.set()
-            update_time_displays()
-        except Exception as exc:
-            log_event(f"Erro ao alterar intervalo: {exc}", "ERROR")
-            notify(f"Erro ao alterar intervalo: {exc}", is_error=True)
-
-    async def action_sync_server_time(e: Any = None) -> None:
-        log_event("Sincronizando relógio oficial Deriv via WebSocket...", "INFO")
-        try:
-            res = await time_operations.get_server_time(api_client)
-            dt_utc = res.get("datetime_utc")
-            if dt_utc:
-                state["server_time_utc"] = dt_utc.strftime("%d/%m/%y %H:%M:%S")
-                state["server_time_full_utc"] = res.get("formatted", dt_utc.strftime("%d/%m/%y %H:%M:%S"))
-            update_time_displays()
-            log_event(
-                f"Relógio Deriv sincronizado: {state.get('server_time_utc')} (Epoch: {res.get('epoch')})",
-                "SUCCESS",
-            )
-            notify("Relógio Deriv sincronizado com sucesso!")
-        except Exception as exc:
-            log_event(f"Erro ao sincronizar relógio: {exc}", "WARNING")
-            notify(f"Erro ao sincronizar relógio: {exc}", is_error=True)
-
-    async def action_restore_default_interval(e: Any = None) -> None:
-        settings_interval_dropdown.value = "300"
-        await on_interval_dropdown_change()
-
-    settings_interval_dropdown.on_change = lambda e: page.run_task(
-        lambda: on_interval_dropdown_change(e)
-    )
-
     async def server_time_and_session_loop() -> None:
-        """Loop contínuo em background para sincronização temporal e tempo logado."""
-        last_sync_time = 0.0
+        """Loop contínuo em background com relógio UTC local nativo em Python (DD/MM/AA HH:MM:SS)."""
         while True:
             try:
-                now_mono = asyncio.get_event_loop().time()
-                current_interval = float(time_operations.tempo_atualizacao)
-
-                if (now_mono - last_sync_time) >= current_interval or last_sync_time == 0.0:
-                    try:
-                        res = await time_operations.get_server_time(api_client)
-                        dt_utc = res.get("datetime_utc")
-                        if dt_utc:
-                            state["server_time_utc"] = dt_utc.strftime("%d/%m/%y %H:%M:%S")
-                            state["server_time_full_utc"] = res.get("formatted", dt_utc.strftime("%d/%m/%y %H:%M:%S"))
-                        last_sync_time = now_mono
-                    except Exception as exc:
-                        logger.debug(f"Erro ao sincronizar tempo com Deriv: {exc}")
+                # Relógio UTC Local Nativo em Python (timezone.utc estrito)
+                res = time_operations.get_current_utc_time()
+                dt_utc = res["datetime_utc"]
+                state["server_time_utc"] = dt_utc.strftime("%d/%m/%y %H:%M:%S")
+                state["server_time_full_utc"] = res["formatted"]
 
                 if state.get("is_authenticated") and time_operations.is_logged_in:
                     state["tempo_logado_str"] = time_operations.format_tempo_logado()
@@ -635,12 +554,7 @@ async def main(page: ft.Page) -> None:
             except Exception as exc:
                 logger.debug(f"Exceção no loop temporal: {exc}")
 
-            try:
-                await asyncio.wait_for(sync_trigger_event.wait(), timeout=1.0)
-                sync_trigger_event.clear()
-                last_sync_time = 0.0
-            except asyncio.TimeoutError:
-                pass
+            await asyncio.sleep(1.0)
 
     # Controles do Monitor de Ticks em Tempo Real (Dashboard)
     dash_live_symbol_chip = ft.Chip(
@@ -1059,23 +973,13 @@ async def main(page: ft.Page) -> None:
                             ft.Row(
                                 [
                                     dash_session_badge,
-                                    ft.OutlinedButton(
-                                        "Sincronizar Relógio",
-                                        icon=ft.Icons.SYNC_ROUNDED,
-                                        on_click=action_sync_server_time,
-                                    ),
-                                    ft.OutlinedButton(
-                                        "Configurar Intervalo",
-                                        icon=ft.Icons.SETTINGS_ROUNDED,
-                                        on_click=lambda _: switch_tab(3),
-                                    ),
                                 ],
                                 spacing=8,
-                                wrap=True,
+                                wrap=False,
                             ),
                         ],
                         alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
-                        wrap=True,
+                        vertical_alignment=ft.CrossAxisAlignment.CENTER,
                     ),
                     ft.Row(
                         [
@@ -1084,7 +988,6 @@ async def main(page: ft.Page) -> None:
                                     [
                                         ft.Text("Relógio Oficial Deriv (UTC)", size=12, color=ft.Colors.GREY_400),
                                         dash_server_time_text,
-                                        dash_sync_interval_text,
                                     ],
                                     spacing=2,
                                 ),
@@ -2148,59 +2051,6 @@ async def main(page: ft.Page) -> None:
     # VIEW 4: AJUSTES (SETTINGS & CONFIGURAÇÃO TEMPORAL)
     # =========================================================================
     def build_settings_view() -> ft.Control:
-        interval_config_card = ft.Container(
-            content=ft.Column(
-                [
-                    ft.Row(
-                        [
-                            ft.Row(
-                                [
-                                    ft.Icon(ft.Icons.TUNE_ROUNDED, size=22, color=ft.Colors.CYAN_300),
-                                    ft.Text(
-                                        "Intervalo de Atualização do Tempo Logado",
-                                        size=16,
-                                        weight=ft.FontWeight.BOLD,
-                                    ),
-                                ],
-                                spacing=8,
-                            ),
-                            settings_interval_badge,
-                        ],
-                        alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
-                        wrap=True,
-                    ),
-                    ft.Text(
-                        "Frequência periódica de sincronização do relógio oficial da Deriv API (UTC) e recálculo da sessão ativa.",
-                        size=13,
-                        color=ft.Colors.GREY_400,
-                    ),
-                    ft.Divider(height=1),
-                    ft.Row(
-                        [
-                            settings_interval_dropdown,
-                            ft.FilledButton(
-                                "Restaurar Padrão (5m)",
-                                icon=ft.Icons.RESTORE_ROUNDED,
-                                on_click=action_restore_default_interval,
-                            ),
-                            ft.FilledButton(
-                                "Sincronizar Agora",
-                                icon=ft.Icons.SYNC_ROUNDED,
-                                bgcolor=ft.Colors.CYAN_700,
-                                on_click=action_sync_server_time,
-                            ),
-                        ],
-                        spacing=12,
-                        wrap=True,
-                    ),
-                ],
-                spacing=14,
-            ),
-            bgcolor=ft.Colors.SURFACE_CONTAINER_HIGHEST,
-            padding=20,
-            border_radius=12,
-        )
-
         diagnostics_card = ft.Container(
             content=ft.Column(
                 [
@@ -2239,14 +2089,13 @@ async def main(page: ft.Page) -> None:
                         [
                             ft.Text("Ajustes & Configurações", size=22, weight=ft.FontWeight.BOLD),
                             ft.Text(
-                                "Gerencie os parâmetros temporais, frequência de atualização em tempo real e preferências operacionais.",
+                                "Painel de auditoria temporal, integridade de conexão e preferências operacionais.",
                                 size=13,
                                 color=ft.Colors.GREY_400,
                             ),
                         ],
                         spacing=2,
                     ),
-                    interval_config_card,
                     diagnostics_card,
                 ],
                 spacing=18,

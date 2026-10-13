@@ -29,8 +29,8 @@ class TestTimeOperationsUnit(unittest.IsolatedAsyncioTestCase):
     def test_default_values(self) -> None:
         """Verifica os valores padrão na inicialização do serviço."""
         self.assertEqual(self.time_ops.tempo_atualizacao, DEFAULT_TEMPO_ATUALIZACAO)
-        self.assertEqual(self.time_ops.tempo_atualizacao, 300.0)
-        self.assertEqual(self.time_ops.tempo_atualizacao_minutos, 5.0)
+        self.assertEqual(self.time_ops.tempo_atualizacao, 60.0)
+        self.assertEqual(self.time_ops.tempo_atualizacao_minutos, 1.0)
         self.assertIsNone(self.time_ops.inicio_sessao_utc)
         self.assertFalse(self.time_ops.is_logged_in)
         self.assertIsNone(self.time_ops.get_tempo_logado())
@@ -99,21 +99,21 @@ class TestTimeOperationsUnit(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(int(diff.total_seconds()), 3600 + 25 * 60 + 43)
 
         formatted = self.time_ops.format_tempo_logado(simulated_now)
-        self.assertEqual(formatted, "00d 01h 25m 43s")
+        self.assertEqual(formatted, "0d 1h 25m")
 
         # Simulação com dias acumulados (1 dia, 4 horas, 12 minutos e 5 segundos)
         simulated_days = base_login + timedelta(days=1, hours=4, minutes=12, seconds=5)
         formatted_days = self.time_ops.format_tempo_logado(simulated_days)
-        self.assertEqual(formatted_days, "01d 04h 12m 05s")
+        self.assertEqual(formatted_days, "1d 4h 12m")
 
         # Teste com naive datetime convertido automaticamente para UTC
         naive_now = datetime(2026, 10, 3, 10, 5, 12)
         diff_naive = self.time_ops.get_tempo_logado(naive_now)
-        self.assertEqual(self.time_ops.format_tempo_logado(naive_now), "00d 00h 05m 12s")
+        self.assertEqual(self.time_ops.format_tempo_logado(naive_now), "0d 0h 5m")
 
         # Se simulated_now for anterior ao login (skew de relógio), clamp para zero
         past_now = base_login - timedelta(seconds=10)
-        self.assertEqual(self.time_ops.format_tempo_logado(past_now), "00d 00h 00m 00s")
+        self.assertEqual(self.time_ops.format_tempo_logado(past_now), "0d 0h 0m")
 
         # Reset do login
         self.time_ops.reset_login()
@@ -165,11 +165,22 @@ class TestTimeOperationsUnit(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(TimeOperations.format_utc_datetime(naive), "2026-05-10 08:30:00 UTC")
         self.assertEqual(TimeOperations.format_utc_datetime_ptbr(naive), "10/05/26 08:30:00")
 
-        # Duração com dias em formato 00d 00h 00m 00s
-        self.assertEqual(TimeOperations.format_seconds_duration(3665), "00d 01h 01m 05s")
-        self.assertEqual(TimeOperations.format_seconds_duration(86400 + 3600 * 4 + 60 * 12 + 5), "01d 04h 12m 05s")
-        self.assertEqual(TimeOperations.format_seconds_duration(0), "00d 00h 00m 00s")
-        self.assertEqual(TimeOperations.format_seconds_duration(-10), "00d 00h 00m 00s")
+        # Duração com dias na máscara sem segundos: 0d 0h 0m
+        self.assertEqual(TimeOperations.format_seconds_duration(3665), "0d 1h 1m")
+        self.assertEqual(TimeOperations.format_seconds_duration(86400 + 3600 * 4 + 60 * 12 + 5), "1d 4h 12m")
+        self.assertEqual(TimeOperations.format_seconds_duration(0), "0d 0h 0m")
+        self.assertEqual(TimeOperations.format_seconds_duration(-10), "0d 0h 0m")
+
+    def test_get_current_utc_time_native(self) -> None:
+        """Testa o relógio UTC local nativo em Python (DD/MM/AA HH:MM:SS) sem requisição de socket."""
+        res = TimeOperations.get_current_utc_time()
+        self.assertIn("epoch", res)
+        self.assertIn("datetime_utc", res)
+        self.assertIn("formatted", res)
+        self.assertIn("formatted_ptbr", res)
+        self.assertEqual(res["datetime_utc"].tzinfo, timezone.utc)
+        # Formato pt-BR: DD/MM/AA HH:MM:SS (17 caracteres)
+        self.assertRegex(res["formatted_ptbr"], r"^\d{2}/\d{2}/\d{2} \d{2}:\d{2}:\d{2}$")
 
 
 class TestDerivServiceTimeIntegration(unittest.IsolatedAsyncioTestCase):
@@ -237,12 +248,17 @@ class TestDerivServiceTimeIntegration(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(auth_res["loginid"], "VRTC12345")
         self.assertTrue(time_operations.is_logged_in)
         self.assertIsNotNone(time_operations.inicio_sessao_utc)
+        self.assertIsNotNone(service.tempo_login)
+        self.assertNotEqual(service.tempo_logado, "--")
+        self.assertRegex(service.tempo_logado, r"^\d+d \d+h \d+m$")
 
         # Executa disconnect
         service.client.disconnect = AsyncMock()
         await service.disconnect()
         self.assertFalse(time_operations.is_logged_in)
         self.assertIsNone(time_operations.inicio_sessao_utc)
+        self.assertIsNone(service.tempo_login)
+        self.assertEqual(service.tempo_logado, "--")
 
 
 class TestApiDerivTimeRoute(unittest.TestCase):
