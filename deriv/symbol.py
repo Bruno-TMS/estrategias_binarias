@@ -359,8 +359,81 @@ class ActiveSymbol:
     def __repr__(self):
         return self._str_repr
 
-    def __iter__(self):
-        return iter(self._assets)
+    @property
+    def assets(self) -> list["Asset"]:
+        return list(self._assets)
+
+    def supports_digits(self) -> bool:
+        """Retorna True APENAS para Índices Sintéticos ou ativos compatíveis com Dígitos (Matches/Differs, Over/Under, Even/Odd)."""
+        # Forex, Ações, Commodities e Cripto não suportam apostas de dígitos na Deriv
+        m = (self._market or "").lower()
+        if m in ("forex", "commodities", "commodity", "indices", "stock", "stockindex", "cryptocurrency", "crypto"):
+            return False
+        # Para Sintéticos, verifica se há ativos da modalidade/grupo digits
+        return any(
+            (getattr(a, "group", "") == "digits" or getattr(a, "modality", "") in ("Matches/Differs", "Over/Under", "Even/Odd"))
+            for a in self._assets
+        )
+
+    def supports_barriers(self) -> bool:
+        """Retorna True se o ativo suporta modalidades que exigem Offset de Preço/Barreira (Higher/Lower, Touch/No Touch, Turbos)."""
+        barrier_modalities = {"Higher/Lower", "Touch/No Touch", "Turbos"}
+        return any(getattr(a, "modality", "") in barrier_modalities for a in self._assets)
+
+    def supports_modality(self, modality_name: str) -> bool:
+        """Verifica se o ativo suporta a modalidade informada."""
+        if modality_name in ("Matches/Differs", "Over/Under", "Even/Odd"):
+            return self.supports_digits()
+        return any(getattr(a, "modality", "") == modality_name for a in self._assets)
+
+    def get_supported_modalities(self) -> list[str]:
+        """Retorna lista com nomes das modalidades suportadas por este ativo."""
+        mods = []
+        is_digit_supported = self.supports_digits()
+        for a in self._assets:
+            m = getattr(a, "modality", "")
+            if m in ("Matches/Differs", "Over/Under", "Even/Odd"):
+                if is_digit_supported and m not in mods:
+                    mods.append(m)
+            elif m and m not in mods:
+                mods.append(m)
+        return mods
+
+    def get_allowed_durations(self, modality_name: str | None = None) -> list[dict[str, Any]]:
+        """Retorna as unidades e limites reais de duração suportadas para o ativo / modalidade."""
+        # Se for Forex, o ativo não aceita ticks para modalidades direcionais
+        m = (self._market or "").lower()
+        is_forex = m == "forex"
+        durations = []
+
+        target_assets = self._assets
+        if modality_name:
+            target_assets = [a for a in self._assets if getattr(a, "modality", "") == modality_name]
+
+        if not target_assets:
+            target_assets = self._assets
+
+        for a in target_assets:
+            u_min = getattr(a, "_unit_min", "") or "t"
+            u_max = getattr(a, "_unit_max", "") or "d"
+            d_min = getattr(a, "_digit_min", 1) or 1
+            d_max = getattr(a, "_digit_max", 365) or 365
+
+            # Restrição Forex: Duração mínima em segundos (15s) ou minutos (1m), sem ticks
+            if is_forex and u_min == "t":
+                u_min = "m"
+                d_min = 1
+
+            durations.append({
+                "modality": getattr(a, "modality", ""),
+                "unit_min": u_min,
+                "digit_min": d_min,
+                "unit_max": u_max,
+                "digit_max": d_max,
+                "has_ticks": not is_forex and u_min == "t",
+            })
+
+        return durations
 
     # endregion
 
@@ -594,12 +667,54 @@ def populate(
         sym_value_dict["sub_market"] = sub_market
         sym_value_dict["submarket_display_name"] = submarket_display_name
 
-    # 3. Instanciar ActiveSymbol no cache
+    # 3. Assegurar modalidades de negociação no Asset caso asset_index não esteja disponível
+    if not Asset.get_modalities():
+        standard_modalities = [
+            ("callput", "Rise/Fall", "1", "t", "365", "d"),
+            ("touchnotouch", "Touch/No Touch", "1", "m", "365", "d"),
+            ("higherlower", "Higher/Lower", "1", "t", "365", "d"),
+            ("accumulator", "Accumulators", "1", "t", "0", "t"),
+            ("multiplier", "Multipliers", "1", "t", "0", "t"),
+            ("turbos", "Turbos", "1", "t", "0", "t"),
+            ("digits", "Matches/Differs", "1", "t", "10", "t"),
+            ("digits", "Over/Under", "1", "t", "10", "t"),
+            ("digits", "Even/Odd", "1", "t", "10", "t"),
+        ]
+        for grp, mod, d_min, u_min, d_max, u_max in standard_modalities:
+            try:
+                Asset(
+                    group=grp,
+                    modality=mod,
+                    digit_min=d_min,
+                    unit_min=u_min,
+                    digit_max=d_max,
+                    unit_max=u_max,
+                )
+            except Exception as exc:
+                logger.debug(f"Falha ao registrar modalidade padrão {mod}: {exc}")
+
+    # 4. Instanciar ActiveSymbol no cache com modalidades compatíveis por mercado
     for symbol, value_dict in symbols_dict.items():
+        assets_list = value_dict.get("assets_indexes", [])
+        m = (value_dict.get("market") or "").lower()
+
+        if not assets_list and Asset.get_all():
+            # Filtragem canônica por mercado:
+            # - Forex, Ações, Commodities e Cripto NÃO suportam dígitos
+            # - Forex não aceita ticks em Rise/Fall na Deriv API
+            if m in ("forex", "commodities", "commodity", "indices", "stock", "stockindex", "cryptocurrency", "crypto"):
+                assets_list = [
+                    a for a in Asset.get_all()
+                    if getattr(a, "group", "") != "digits"
+                    and getattr(a, "modality", "") not in ("Matches/Differs", "Over/Under", "Even/Odd")
+                ]
+            else:
+                assets_list = Asset.get_all()
+
         ActiveSymbol(
             symbol=symbol,
             display_name=value_dict.get("display_name") or symbol,
-            assets=value_dict.get("assets_indexes", []),
+            assets=assets_list,
             exchange_is_open=value_dict.get("exchange_is_open", True),
             is_trading_suspended=value_dict.get("is_trading_suspended", False),
             market=value_dict.get("market", ""),

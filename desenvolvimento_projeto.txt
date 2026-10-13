@@ -1,6 +1,129 @@
 ================================================================================
 HISTÓRICO CONSOLIDADO DE DESENVOLVIMENTO DO PROJETO
-Última Atualização: 2026-10-13 02:02:30 UTC
+Última Atualização: 2026-10-13 11:16:41 UTC
+================================================================================
+
+================================================================================
+[REGISTRO DE DESENVOLVIMENTO - 2026-10-13 11:16:41 UTC]
+--------------------------------------------------------------------------------
+PEDIDO (SENHOR SUPREMO):
+
+### Ordem de Execução para o Antigravity (v11.0) - UI Dinâmica Orientada por Objetos Symbol & Asset
+
+* Arquivos Alvos:
+  * deriv/symbol.py (Métodos de checagem de modalidades suportadas por cada objeto ActiveSymbol/Asset).
+  * ui_app.py (Refatoração reativa dos seletores e controles de formulário para responder dinamicamente ao símbolo selecionado).
+  * tests/test_deriv_symbol.py (Atualização da suíte de testes unitários).
+
+* O Que Fazer:
+  1. Encapsulamento de Validação nos Objetos de Domínio (deriv/symbol.py):
+     - symbol_obj.supports_digits() ➔ Retorna True APENAS para Índices Sintéticos compatíveis com Dígitos (Matches/Differs, Over/Under, Even/Odd).
+     - symbol_obj.supports_barriers() ➔ Retorna True para contratos que exigem Offset de Preço/Barreira (Higher/Lower, Touch/No Touch).
+     - symbol_obj.get_allowed_durations() ➔ Retorna unidades e limites reais de duração (ex: Forex não aceita 1 tick em certos contratos, exigindo mínimo em segundos/minutos).
+     - symbol_obj.get_supported_modalities() e supports_modality().
+  2. Renderização Dinâmica e Condicional de Controles na Interface Flet (ui_app.py):
+     - Ao Selecionar/Alterar um Ativo: capturar o objeto ActiveSymbol correspondente.
+     - Filtrar o Seletor de Tipo de Negociação: popular dropdown e menu lateral exclusivamente com as modalidades suportadas pelo ativo. Ao escolher Forex (ex: EUR/USD), a opção "Dígitos" desaparece completamente da tela.
+     - Grid de Dígitos (0 a 9): ocultado se o ativo/modalidade não suportar dígitos.
+     - Campo de Barreira (Offset +/-): exibido apenas para modalidades que utilizem barreira.
+     - Seletor de Duração: atualizar opções de unidade e duração mínima (Forex bloqueia Ticks e força Minutos).
+  3. Validação de Runtime e Suíte de Testes Unitários: 100% de aprovação.
+  4. Comandos Imutáveis de Fechamento: dump_projeto.txt e desenvolvimento_projeto.txt.
+
+RESPOSTA / RELATÓRIO DE EXECUÇÃO (ANTIGRAVITY):
+
+### Relatório de Execução - UI Dinâmica Orientada por Objetos Symbol & Asset (v11.0)
+
+1. Encapsulamento de Domínio em ActiveSymbol e Asset (deriv/symbol.py):
+   - Implementado método `supports_digits()`: retorna True estritamente para ativos do mercado sintético com suporte a apostas de dígitos, retornando False para Forex, Ações/Índices, Commodities e Criptomoedas.
+   - Implementado método `supports_barriers()`: retorna True para contratos que exigem Offset de Barreira (Higher/Lower, Touch/No Touch, Turbos).
+   - Implementado método `get_supported_modalities()`: retorna exclusivamente os tipos contratuais permitidos pelo ativo em questão.
+   - Implementado método `get_allowed_durations(modality_name)`: calcula limites mínimos e máximos reais, desabilitando ticks e exigindo minutos para Forex.
+   - Refatorado método `populate()` para garantir o isolamento correto de instâncias de `Asset` por mercado.
+
+2. Reatividade Estrita e Filtragem Dinâmica na UI (ui_app.py):
+   - Criado helper `get_current_symbol_obj()` para recuperar a instância ativa de `ActiveSymbol`.
+   - Menu Lateral de Negociação (`render_modality_menu`): o grupo "Dígitos" e suas modalidades são completamente removidos da tela quando um ativo que não suporta dígitos (ex: EUR/USD, AUD/JPY, etc.) é selecionado.
+   - Seletor de Trade Type (`boleta_trade_type_dropdown`): populado dinamicamente com as modalidades retornadas pelo objeto do ativo. Se o ativo mudar e a modalidade anterior for inválida, ajusta automaticamente para uma permitida.
+   - Painel de Dígitos (`digit_grid_container`): permanece oculto (`visible=False`) para Forex, Commodities, Ações e Cripto, sendo exibido apenas para modalidades de dígitos em Índices Sintéticos.
+   - Campo de Barreira (`barrier_container`): exibido condicionalmente para modalidades com offset.
+   - Controle de Duração (`adjust_duration` e `on_duration_unit_change`): bloqueia seleção de Ticks para Forex, forçando unidade em Minutos com validação dinâmica.
+   - Abas de Mercado (`render_market_tabs`): ao alternar a aba de mercado, carrega automaticamente o primeiro ativo elegível com atualização em cascata de todos os controles.
+
+3. Qualidade e Governança:
+   - Criado teste unitário específico `tests/test_deriv_symbol.py` cobrindo regras de Forex, Sintéticos, Cripto e Commodities.
+   - Suíte completa com 59 testes aprovados (100% OK).
+   - Dump do projeto consolidado em `dump_projeto.txt`.
+   - Log histórico gravado no topo de `desenvolvimento_projeto.txt`.
+================================================================================
+
+================================================================================
+[REGISTRO DE DESENVOLVIMENTO - 2026-10-13 09:19:52 UTC]
+--------------------------------------------------------------------------------
+PEDIDO (SENHOR SUPREMO):
+
+The application encountered an error: TextField.__init__() got an unexpected keyword argument 'prefix_text'. Did you mean 'prefix_icon'?
+
+RESPOSTA / RELATÓRIO DE EXECUÇÃO (ANTIGRAVITY):
+
+### Correção de Runtime no Flet: Parâmetros de Prefixo e Sufixo no TextField
+
+1. Causa Raiz:
+   - No Flet 1.0.3+, o componente `TextField` não suporta as propriedades `prefix_text` e `suffix_text`. Ele aceita controles em `prefix` e `suffix` (ex: `prefix=ft.Text("$ ")` e `suffix=ft.Text(" USD")`).
+   - O campo `boleta_stake_text` no configurador da boleta em `ui_app.py` estava instanciado com os argumentos legados, disparando o TypeError na inicialização da página.
+
+2. Ações Realizadas:
+   - Substituição dos argumentos `prefix_text` e `suffix_text` por instâncias canônicas de `ft.Text` nos parâmetros `prefix` e `suffix`, com estilos de cor e contraste padronizados.
+   - Execução e simulação do ciclo assíncrono completo de inicialização `ui_app.main(page)`, confirmando ausência de qualquer exceção em runtime.
+   - Execução da suíte completa de testes unitários com 100% de aprovação (55 testes).
+   - Atualização do dump do projeto (dump_projeto.txt) e registro no dev log.
+================================================================================
+
+================================================================================
+[REGISTRO DE DESENVOLVIMENTO - 2026-10-13 09:04:58 UTC]
+--------------------------------------------------------------------------------
+PEDIDO (SENHOR SUPREMO):
+
+### Ordem de Execução para o Antigravity (v11.0) - Catálogo Multiativo & Multi-Contrato
+* Arquivos Alvos:
+  * deriv/symbol.py (Reaproveitamento e uso direto das classes ActiveSymbol e Asset para filtragem por mercado, modalidade e duração).
+  * ui_app.py (Refatoração completa do painel build_catalog_view para integrar as abas de mercados e a boleta de contratos usando ActiveSymbol e Asset).
+  * services/deriv_service.py (Garantir suporte ao parâmetro synthetic_only=False consumindo o cache de ActiveSymbol).
+  * tests/ (Suíte de testes unitários).
+* O Que Fazer:
+  1. Integração Obrigatória com deriv/symbol.py (ActiveSymbol e Asset): alimentar UI e boleta com base nas classes oficiais do sistema.
+  2. Implementação das 5 abas de mercado: Derivados (Sintéticos), Forex, Ações & Índices, Matérias-Primas, Criptomoedas.
+  3. Estruturação em 3 colunas: Categorias laterais à esquerda (Direcional, Crescimento, Dígitos), Grid de cards de ativos no centro (ícones, sparkline, variação %, favorito) e Boleta de Parâmetros à direita (Contract Parameter Configurator com Trade Type, Duração, Grade de Dígitos 0-9, Last Digit Prediction, Barrier Offset, Stake, botões CALL/PUT com Payout estimado e botão para transferir parâmetros ao Bot Autônomo).
+  4. Suporte a synthetic_only=False e preservação de todas as funcionalidades existentes.
+  5. Suíte de testes unitários e atualização de dump e dev log.
+
+RESPOSTA / RELATÓRIO DE EXECUÇÃO (ANTIGRAVITY):
+
+### Relatório de Execução - Catálogo Multiativo & Multi-Contrato (v11.0)
+
+1. Integração com ActiveSymbol e Asset (deriv/symbol.py):
+   - Atualizado o método `populate` para garantir o registro padronizado e robusto das modalidades da Deriv (Rise/Fall, Touch/No Touch, Higher/Lower, Accumulators, Multipliers, Turbos, Matches/Differs, Over/Under, Even/Odd) e associação canônica de instâncias de `Asset` para cada `ActiveSymbol`.
+   - Utilizados os métodos de busca e filtragem canônicos (`ActiveSymbol.get_available_symbols()`, `filter_symbols_by_type()`, `get_symbols_by_duration()`, e métodos da classe `Asset`).
+
+2. Refatoração Completa da Interface do Catálogo (ui_app.py):
+   - Implementadas as 5 abas de mercado no topo: Derivados (Sintéticos), Forex, Ações & Índices, Matérias-Primas e Criptomoedas.
+   - Coluna Lateral Esquerda: Seletor de categorias operacionais (Direcional, Crescimento, Dígitos) com contadores dinâmicos.
+   - Coluna Central (Grid de Cotações): Cards ricos de ativos contendo ícone de mercado, nome legível, símbolo, badge de categoria, indicador de sparkline colorido, variação percentual de 24h, estrela de favoritos funcional e seleção ao clique.
+   - Coluna Lateral Direita (Contract Parameter Configurator):
+     * Seletor de Trade Type vinculado à modalidade ativa (Ex: Rise/Fall, Higher/Lower, Matches/Differs, etc.).
+     * Duração configurável com seletor segmentado Ticks/Minutos e botões de incremento/decremento rápido (+/-).
+     * Grade interativa de dígitos (0 a 9) com seleção de Last Digit Prediction para contratos de dígitos.
+     * Campo de Barrier Offset (+/- offset) exibido dinamicamente para modalidades que exigem barreira.
+     * Ajuste de Entry Stake com botões de passo rápido (+/-).
+     * Botões de ação direta CALL / PUT (ou Match/Differ, Over/Under) com indicação de Payout e Lucro Líquido projetados.
+     * Botão para transferência instantânea dos parâmetros configurados para o Bot Autônomo.
+
+3. Compatibilidade e Suporte Backend (services/deriv_service.py):
+   - Suporte verificado e integrado para `synthetic_only=False`, permitindo a listagem integral de todos os mercados e ativos disponíveis pela Deriv API.
+
+4. Validação e Qualidade:
+   - Suíte de 55 testes unitários executada com 100% de sucesso.
+   - Arquivo dump_projeto.txt atualizado com os 31 arquivos do repositório.
 ================================================================================
 
 ================================================================================

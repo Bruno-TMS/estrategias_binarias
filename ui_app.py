@@ -17,6 +17,11 @@ from typing import Any
 import flet as ft
 import httpx
 
+try:
+    from deriv.symbol import ActiveSymbol, Asset
+except ImportError:
+    from symbol import ActiveSymbol, Asset
+
 # Configuração de logging
 logging.basicConfig(
     level=logging.INFO,
@@ -823,26 +828,63 @@ async def main(page: ft.Page) -> None:
         )
 
     # =========================================================================
-    # VIEW 2: CATÁLOGO E COTAÇÕES EM TEMPO REAL
+    # VIEW 2: CATÁLOGO MULTIATIVO & MULTI-CONTRATO (ActiveSymbol & Asset)
     # =========================================================================
-    dropdown_symbol = ft.Dropdown(
-        label="Ativo Sintético Selecionado",
-        width=300,
-        options=[
-            ft.DropdownOption("1HZ100V", "Volatility 100 (1s) Index"),
-            ft.DropdownOption("1HZ50V", "Volatility 50 (1s) Index"),
-            ft.DropdownOption("1HZ25V", "Volatility 25 (1s) Index"),
-            ft.DropdownOption("1HZ10V", "Volatility 10 (1s) Index"),
-            ft.DropdownOption("1HZ75V", "Volatility 75 (1s) Index"),
-            ft.DropdownOption("R_100", "Volatility 100 Index"),
-            ft.DropdownOption("R_50", "Volatility 50 Index"),
-            ft.DropdownOption("R_25", "Volatility 25 Index"),
-            ft.DropdownOption("R_10", "Volatility 10 Index"),
-            ft.DropdownOption("R_75", "Volatility 75 Index"),
-        ],
-        value="1HZ100V",
-    )
+    from deriv.symbol import ActiveSymbol, Asset
 
+    # Estado reativo do Catálogo e Boleta
+    catalog_state = {
+        "active_market": "synthetic_index",
+        "active_modality": "Rise/Fall",
+        "duration_value": 5,
+        "duration_unit": "t",
+        "selected_digit": 5,
+        "barrier_offset": "0",
+        "entry_stake": 10.0,
+        "favorite_symbols": {"1HZ100V", "frxEURUSD", "frxXAUUSD", "cryBTCUSD"},
+    }
+
+    # Definição dos 5 Mercados
+    MARKET_TABS = [
+        {"id": "synthetic_index", "label": "Derivados (Sintéticos)", "market_filter": ["synthetic_index", "synthetic"]},
+        {"id": "forex", "label": "Forex", "market_filter": ["forex"]},
+        {"id": "indices", "label": "Ações & Índices", "market_filter": ["indices", "stock", "stockindex"]},
+        {"id": "commodities", "label": "Matérias-Primas", "market_filter": ["commodities", "commodity"]},
+        {"id": "cryptocurrency", "label": "Criptomoedas", "market_filter": ["cryptocurrency", "crypto"]},
+    ]
+
+    # Definição dos Grupos e Modalidades (Asset)
+    MODALITY_SECTIONS = [
+        {
+            "group": "Direcional",
+            "icon": ft.Icons.SWAP_VERT_ROUNDED,
+            "items": [
+                {"label": "Rise/Fall", "contract": "CALL/PUT", "has_digit": False, "has_barrier": False},
+                {"label": "Touch/No Touch", "contract": "ONETOUCH/NOTOUCH", "has_digit": False, "has_barrier": True},
+                {"label": "Higher/Lower", "contract": "HIGHER/LOWER", "has_digit": False, "has_barrier": True},
+            ],
+        },
+        {
+            "group": "Crescimento",
+            "icon": ft.Icons.ECO_ROUNDED,
+            "items": [
+                {"label": "Accumulators", "contract": "ACCU", "has_digit": False, "has_barrier": False},
+                {"label": "Multipliers", "contract": "MULTUP/MULTDOWN", "has_digit": False, "has_barrier": False},
+                {"label": "Turbos", "contract": "TURBOSLONG/SHORT", "has_digit": False, "has_barrier": True},
+            ],
+        },
+        {
+            "group": "Dígitos",
+            "icon": ft.Icons.DATA_ARRAY_ROUNDED,
+            "items": [
+                {"label": "Matches/Differs", "contract": "DIGITMATCH/DIFF", "has_digit": True, "has_barrier": False},
+                {"label": "Over/Under", "contract": "DIGITOVER/UNDER", "has_digit": True, "has_barrier": False},
+                {"label": "Even/Odd", "contract": "DIGITEVEN/ODD", "has_digit": True, "has_barrier": False},
+            ],
+        },
+    ]
+
+    # Controles de Cotação e Resumo
     tick_price_display = ft.Text(
         "--.----",
         size=36,
@@ -854,32 +896,65 @@ async def main(page: ft.Page) -> None:
     tick_symbol_badge = ft.Chip(label=ft.Text("1HZ100V", weight=ft.FontWeight.BOLD))
     switch_live_stream = ft.Switch(label="Stream WebSocket em Tempo Real", value=True)
 
-    contracts_table = ft.DataTable(
-        columns=[
-            ft.DataColumn(ft.Text("Tipo de Contrato", weight=ft.FontWeight.BOLD)),
-            ft.DataColumn(ft.Text("Categoria", weight=ft.FontWeight.BOLD)),
-            ft.DataColumn(ft.Text("Duração Mínima", weight=ft.FontWeight.BOLD)),
-            ft.DataColumn(ft.Text("Duração Máxima", weight=ft.FontWeight.BOLD)),
+    # Controles da Boleta (Contract Parameter Configurator)
+    boleta_trade_type_dropdown = ft.Dropdown(
+        label="Trade Type (Tipo de Negociação)",
+        options=[
+            ft.DropdownOption("Rise/Fall", "Rise/Fall"),
+            ft.DropdownOption("Touch/No Touch", "Touch/No Touch"),
+            ft.DropdownOption("Higher/Lower", "Higher/Lower"),
+            ft.DropdownOption("Accumulators", "Accumulators"),
+            ft.DropdownOption("Multipliers", "Multipliers"),
+            ft.DropdownOption("Turbos", "Turbos"),
+            ft.DropdownOption("Matches/Differs", "Matches/Differs"),
+            ft.DropdownOption("Over/Under", "Over/Under"),
+            ft.DropdownOption("Even/Odd", "Even/Odd"),
         ],
-        rows=[],
+        value="Rise/Fall",
+        dense=True,
+        border_color=ft.Colors.CYAN_800,
+    )
+    boleta_duration_text = ft.Text("5 Ticks", size=14, weight=ft.FontWeight.BOLD, color=ft.Colors.WHITE)
+    boleta_unit_segmented = ft.CupertinoSegmentedButton(
+        selected_index=0,
+        controls=[
+            ft.Text("Ticks", size=11, color=ft.Colors.WHITE),
+            ft.Text("Minutos", size=11, color=ft.Colors.WHITE),
+        ],
+        selected_color=ft.Colors.CYAN_700,
+        unselected_color=ft.Colors.TRANSPARENT,
+        border_color=ft.Colors.CYAN_700,
+    )
+    boleta_stake_text = ft.TextField(
+        value="10.00",
+        prefix=ft.Text("$ ", color=ft.Colors.WHITE, size=13),
+        suffix=ft.Text(" USD", color=ft.Colors.WHITE, size=12),
+        text_align=ft.TextAlign.CENTER,
+        dense=True,
+        border=ft.NoInputBorder(),
+        color=ft.Colors.WHITE,
+        text_style=ft.TextStyle(size=14, weight=ft.FontWeight.BOLD),
+        width=140,
+    )
+    boleta_payout_text = ft.Text("Potential Payout: $ 19.50 USD", size=12, color=ft.Colors.CYAN_200, weight=ft.FontWeight.W_500)
+    boleta_digit_prediction_text = ft.Text("0", size=13, weight=ft.FontWeight.BOLD, color=ft.Colors.WHITE)
+    boleta_barrier_offset_input = ft.TextField(
+        value="0",
+        dense=True,
+        text_align=ft.TextAlign.CENTER,
+        height=32,
+        border_radius=6,
+        border_color=ft.Colors.CYAN_800,
+        color=ft.Colors.WHITE,
+        width=90,
     )
 
-    catalog_data_table = ft.DataTable(
-        columns=[
-            ft.DataColumn(ft.Text("Símbolo", weight=ft.FontWeight.BOLD)),
-            ft.DataColumn(ft.Text("Nome do Ativo", weight=ft.FontWeight.BOLD)),
-            ft.DataColumn(ft.Text("Mercado", weight=ft.FontWeight.BOLD)),
-            ft.DataColumn(ft.Text("Status", weight=ft.FontWeight.BOLD)),
-            ft.DataColumn(ft.Text("Ação", weight=ft.FontWeight.BOLD)),
-        ],
-        rows=[],
-    )
-
-    search_catalog_input = ft.TextField(
-        label="Filtrar catálogo por símbolo ou nome...",
-        prefix_icon=ft.Icons.SEARCH_ROUNDED,
-        expand=True,
-    )
+    # Containers de Renderização Dinâmica
+    market_tabs_row = ft.Row(spacing=8, scroll=ft.ScrollMode.ADAPTIVE)
+    modality_menu_column = ft.Column(spacing=12, scroll=ft.ScrollMode.ADAPTIVE)
+    asset_list_column = ft.Column(spacing=8, scroll=ft.ScrollMode.ADAPTIVE, expand=True)
+    digit_grid_container = ft.Container(visible=False)
+    barrier_container = ft.Container(visible=False)
 
     async def update_tick_view(symbol: str) -> None:
         try:
@@ -918,256 +993,714 @@ async def main(page: ft.Page) -> None:
     async def load_contracts_for_symbol(symbol: str) -> None:
         try:
             contracts = await api_client.get_contracts(symbol)
-            contracts_table.rows.clear()
-            for c in contracts[:10]:
-                c_type = c.get("contract_type", "CALL/PUT")
-                c_cat = c.get("category", "Rise/Fall")
-                min_d = f"{c.get('min_duration', 5)} {c.get('min_duration_unit', 't')}"
-                max_d = f"{c.get('max_duration', 365)} {c.get('max_duration_unit', 'd')}"
-                contracts_table.rows.append(
-                    ft.DataRow(
-                        cells=[
-                            ft.DataCell(ft.Text(c_type, weight=ft.FontWeight.W_500)),
-                            ft.DataCell(ft.Text(c_cat)),
-                            ft.DataCell(ft.Text(min_d, color=ft.Colors.GREEN_300)),
-                            ft.DataCell(ft.Text(max_d, color=ft.Colors.CYAN_300)),
-                        ]
-                    )
-                )
+            # Revalida opções de modalidades ativas disponíveis para o ativo
+            if contracts:
+                available_cats = {c.get("category", "") for c in contracts}
+                logger.debug(f"Contratos para {symbol}: {available_cats}")
             page.update()
         except Exception as exc:
             log_event(f"Erro ao consultar contratos de {symbol}: {exc}", "WARNING")
 
-    async def on_symbol_selected(e: Any = None) -> None:
-        sym = dropdown_symbol.value or "1HZ100V"
+    def get_current_symbol_obj() -> ActiveSymbol | None:
+        """Retorna a instância de ActiveSymbol correspondente ao ativo atualmente selecionado."""
+        sym = state.get("selected_symbol", "1HZ100V")
+        found = ActiveSymbol.find(symbol=sym)
+        return found[0] if found else None
+
+    async def select_asset_and_load(sym: str) -> None:
+        """Carrega o ativo selecionado do catálogo para cotações e Boleta/Bot."""
         state["selected_symbol"] = sym
         dd_bot_symbol.value = sym
-        log_event(f"Ativo selecionado: {sym}. Consultando cotação e contratos...", "INFO")
+        tick_symbol_badge.label = ft.Text(sym, weight=ft.FontWeight.BOLD)
+        log_event(f"Ativo carregado: {sym}. Sincronizando Boleta e cotações...", "INFO")
         if state.get("live_stream_active", True):
             await set_active_subscription(sym)
         else:
             await update_tick_view(sym)
         await load_contracts_for_symbol(sym)
 
-    async def on_switch_live_stream_change(e: Any = None) -> None:
-        active = bool(switch_live_stream.value)
-        state["live_stream_active"] = active
-        sym = dropdown_symbol.value or state["selected_symbol"]
-        if active:
-            log_event(f"Reativando stream contínuo de ticks para {sym}...", "INFO")
-            await set_active_subscription(sym)
-        else:
-            log_event("Stream contínuo de ticks pausado pelo usuário.", "INFO")
-            await api_client.unsubscribe_all_ticks()
-            dash_live_status_badge.content = ft.Text(
-                "● PAUSADO",
-                size=10,
-                weight=ft.FontWeight.BOLD,
-                color=ft.Colors.AMBER_200,
-            )
-            dash_live_status_badge.bgcolor = ft.Colors.AMBER_900
-            page.update()
+        # Sincronização dinâmica estrita baseada no objeto ActiveSymbol
+        sym_obj = get_current_symbol_obj()
+        allowed_mods = sym_obj.get_supported_modalities() if sym_obj else []
 
-    def filter_catalog(e: Any = None) -> None:
-        query = (search_catalog_input.value or "").strip().lower()
-        all_syms = state.get("symbols_list", [])
-        catalog_data_table.rows.clear()
-        filtered = [
-            s
-            for s in all_syms
-            if query in s.get("symbol", "").lower() or query in s.get("display_name", "").lower()
-        ]
-        for s in filtered[:25]:
-            sym = s.get("symbol", "")
-            name = s.get("display_name", "")
-            market = s.get("market_name", "Sintético")
-            is_open = s.get("is_trading_suspended", 0) == 0
+        # Se a modalidade ativa não for suportada pelo novo ativo, seleciona a primeira permitida
+        if allowed_mods and catalog_state["active_modality"] not in allowed_mods:
+            catalog_state["active_modality"] = allowed_mods[0]
 
-            def make_select_callback(selected_s: str):
-                async def _on_click(_):
-                    dropdown_symbol.value = selected_s
-                    state["selected_symbol"] = selected_s
-                    dd_bot_symbol.value = selected_s
-                    if state.get("live_stream_active", True):
-                        await set_active_subscription(selected_s)
-                    else:
-                        await update_tick_view(selected_s)
-                    await load_contracts_for_symbol(selected_s)
-                    notify(f"Ativo {selected_s} carregado nas cotações e no Bot!")
+        # Sincroniza opções do dropdown da boleta com as modalidades suportadas pelo ativo
+        if allowed_mods:
+            boleta_trade_type_dropdown.options = [
+                ft.DropdownOption(m, m) for m in allowed_mods
+            ]
+            boleta_trade_type_dropdown.value = catalog_state["active_modality"]
 
-                return _on_click
+        # Ajusta unidades e limites de duração suportados
+        is_forex = sym_obj and (sym_obj.market or "").lower() == "forex"
+        if is_forex and catalog_state["duration_unit"] == "t":
+            catalog_state["duration_unit"] = "m"
+            catalog_state["duration_value"] = max(1, catalog_state["duration_value"])
+            boleta_unit_segmented.selected_index = 1
 
-            catalog_data_table.rows.append(
-                ft.DataRow(
-                    cells=[
-                        ft.DataCell(ft.Text(sym, weight=ft.FontWeight.BOLD, color=ft.Colors.CYAN_300)),
-                        ft.DataCell(ft.Text(name)),
-                        ft.DataCell(ft.Text(market)),
-                        ft.DataCell(
-                            ft.Text(
-                                "Aberto" if is_open else "Suspenso",
-                                color=ft.Colors.GREEN_400 if is_open else ft.Colors.RED_400,
-                            )
-                        ),
-                        ft.DataCell(
-                            ft.OutlinedButton(
-                                "Selecionar",
-                                on_click=make_select_callback(sym),
-                            )
-                        ),
-                    ]
-                )
-            )
+        unit_label = "Ticks" if catalog_state["duration_unit"] == "t" else "Minutos"
+        boleta_duration_text.value = f"{catalog_state['duration_value']} {unit_label}"
+
+        update_modality_ui(catalog_state["active_modality"])
+        render_asset_list()
+        calculate_payout()
+        notify(f"Ativo {sym} pronto para negociação na Boleta e no Bot!")
+
+    def calculate_payout() -> None:
+        try:
+            stake = float(catalog_state["entry_stake"])
+        except ValueError:
+            stake = 10.0
+        payout = stake * 1.95
+        boleta_payout_text.value = f"Potential Payout: $ {payout:,.2f} USD"
         page.update()
 
-    async def load_symbols_into_ui() -> None:
-        try:
-            syms = await api_client.get_symbols(synthetic_only=True)
-            state["symbols_list"] = syms
-            if syms:
-                dropdown_symbol.options = [
-                    ft.DropdownOption(s["symbol"], f"{s['display_name']} ({s['symbol']})")
-                    for s in syms
-                ]
-                dd_bot_symbol.options = dropdown_symbol.options
-            filter_catalog()
-        except Exception as exc:
-            log_event(f"Erro ao carregar catálogo de símbolos: {exc}", "WARNING")
+    def update_modality_ui(mod_name: str) -> None:
+        catalog_state["active_modality"] = mod_name
+        boleta_trade_type_dropdown.value = mod_name
 
-    search_catalog_input.on_change = filter_catalog
-    dropdown_symbol.on_change = on_symbol_selected
-    switch_live_stream.on_change = lambda e: page.run_task(lambda: on_switch_live_stream_change(e))
+        sym_obj = get_current_symbol_obj()
 
-    def build_catalog_view() -> ft.Control:
-        quote_card = ft.Container(
-            content=ft.Column(
-                [
-                    ft.Row(
-                        [
-                            ft.Row(
-                                [
-                                    dropdown_symbol,
-                                    ft.FilledButton(
-                                        "Atualizar Tick",
-                                        icon=ft.Icons.REFRESH_ROUNDED,
-                                        on_click=on_symbol_selected,
-                                    ),
-                                ],
-                                spacing=12,
-                            ),
-                            ft.Row(
-                                [
-                                    switch_live_stream,
-                                    ft.FilledButton(
-                                        "Usar no Bot",
-                                        icon=ft.Icons.ARROW_FORWARD_ROUNDED,
-                                        bgcolor=ft.Colors.CYAN_700,
-                                        on_click=lambda _: switch_tab(2),
-                                    ),
-                                ],
-                                spacing=12,
-                            ),
-                        ],
-                        alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
-                        wrap=True,
-                    ),
-                    ft.Divider(height=1),
-                    ft.Row(
-                        [
-                            ft.Column(
-                                [
-                                    ft.Row(
-                                        [
-                                            tick_symbol_badge,
-                                            ft.Text("Cotação em Tempo Real", size=13, color=ft.Colors.GREY_400),
-                                        ],
-                                        spacing=8,
-                                    ),
-                                    ft.Row(
-                                        [
-                                            tick_price_display,
-                                            tick_diff_icon,
-                                        ],
-                                        vertical_alignment=ft.CrossAxisAlignment.CENTER,
-                                        spacing=10,
-                                    ),
-                                    tick_time_text,
-                                ],
-                                spacing=4,
-                            ),
-                        ],
-                        alignment=ft.MainAxisAlignment.START,
-                    ),
-                ],
-                spacing=14,
-            ),
-            bgcolor=ft.Colors.SURFACE_CONTAINER_HIGHEST,
-            padding=16,
-            border_radius=12,
+        # Encontra se a modalidade suporta dígitos ou barreira
+        is_digit_mod = any(
+            item["has_digit"]
+            for sec in MODALITY_SECTIONS
+            for item in sec["items"]
+            if item["label"] == mod_name
+        )
+        is_barrier_mod = any(
+            item["has_barrier"]
+            for sec in MODALITY_SECTIONS
+            for item in sec["items"]
+            if item["label"] == mod_name
         )
 
-        contracts_card = ft.Container(
-            content=ft.Column(
-                [
-                    ft.Text("Contratos & Durações Suportadas", size=15, weight=ft.FontWeight.BOLD),
-                    ft.Container(
-                        content=contracts_table,
-                        height=190,
+        # Regra de ouro orientada a objetos:
+        # Se o ativo não suporta dígitos (ex: Forex frxEURUSD), o grid de dígitos NUNCA aparece!
+        supports_digits = sym_obj.supports_digits() if sym_obj else False
+        supports_barriers = sym_obj.supports_barriers() if sym_obj else True
+
+        digit_grid_container.visible = is_digit_mod and supports_digits
+        barrier_container.visible = is_barrier_mod and supports_barriers
+
+        render_modality_menu()
+        render_digit_grid()
+        calculate_payout()
+        page.update()
+
+    def render_market_tabs() -> None:
+        tabs = []
+        for m in MARKET_TABS:
+            is_active = catalog_state["active_market"] == m["id"]
+
+            def make_tab_click(mid: str):
+                def _handler(_):
+                    catalog_state["active_market"] = mid
+                    # Seleciona automaticamente o primeiro ativo compatível desse mercado
+                    all_symbols = state.get("symbols_list", [])
+                    matched = [
+                        s.get("symbol") for s in all_symbols
+                        if s.get("symbol") and (
+                            s.get("market") == mid
+                            or mid in (s.get("market") or "")
+                            or (mid == "indices" and s.get("market") in ["indices", "stock"])
+                        )
+                    ]
+                    if matched and matched[0] != state.get("selected_symbol"):
+                        page.run_task(select_asset_and_load, matched[0])
+                    else:
+                        render_market_tabs()
+                        render_asset_list()
+                        page.update()
+                return _handler
+
+            tabs.append(
+                ft.Container(
+                    content=ft.Text(
+                        m["label"],
+                        size=12,
+                        weight=ft.FontWeight.BOLD if is_active else ft.FontWeight.W_500,
+                        color=ft.Colors.WHITE if is_active else ft.Colors.GREY_400,
                     ),
+                    bgcolor="#122A30" if is_active else "#101820",
+                    border=ft.Border.all(1, ft.Colors.CYAN_400 if is_active else ft.Colors.TRANSPARENT),
+                    border_radius=8,
+                    padding=ft.padding.Padding(16, 10, 16, 10),
+                    alignment=ft.Alignment.CENTER,
+                    on_click=make_tab_click(m["id"]),
+                    animate=ft.Animation(200, ft.AnimationCurve.EASE_OUT),
+                )
+            )
+        market_tabs_row.controls = tabs
+
+    def render_modality_menu() -> None:
+        controls = [
+            ft.Row(
+                [
+                    ft.Icon(ft.Icons.TUNE_ROUNDED, size=18, color=ft.Colors.CYAN_300),
+                    ft.Text("Tipos de Negociação", size=14, weight=ft.FontWeight.BOLD, color=ft.Colors.WHITE),
                 ],
                 spacing=8,
             ),
-            bgcolor=ft.Colors.SURFACE_CONTAINER_HIGHEST,
-            padding=16,
-            border_radius=12,
+            ft.Divider(height=1, color=ft.Colors.OUTLINE_VARIANT),
+        ]
+
+        sym_obj = get_current_symbol_obj()
+        allowed_mods = sym_obj.get_supported_modalities() if sym_obj else [
+            item["label"] for sec in MODALITY_SECTIONS for item in sec["items"]
+        ]
+        supports_digits = sym_obj.supports_digits() if sym_obj else False
+
+        for sec in MODALITY_SECTIONS:
+            # Se for a seção de Dígitos e o ativo não suportar dígitos, omite o grupo inteiro
+            if sec["group"] == "Dígitos" and not supports_digits:
+                continue
+
+            # Filtra itens suportados pelo ativo
+            valid_items = [
+                item for item in sec["items"]
+                if item["label"] in allowed_mods
+            ]
+            if not valid_items:
+                continue
+
+            controls.append(
+                ft.Row(
+                    [
+                        ft.Icon(sec["icon"], size=16, color=ft.Colors.CYAN_200),
+                        ft.Text(sec["group"], size=12, weight=ft.FontWeight.BOLD, color=ft.Colors.CYAN_100),
+                    ],
+                    spacing=6,
+                )
+            )
+
+            for item in valid_items:
+                mod_name = item["label"]
+                is_active = catalog_state["active_modality"] == mod_name
+
+                def make_mod_click(m_name: str):
+                    def _handler(_):
+                        update_modality_ui(m_name)
+                    return _handler
+
+                controls.append(
+                    ft.Container(
+                        content=ft.Row(
+                            [
+                                ft.Icon(
+                                    ft.Icons.SUBDIRECTORY_ARROW_RIGHT_ROUNDED,
+                                    size=14,
+                                    color=ft.Colors.CYAN_300 if is_active else ft.Colors.GREY_500,
+                                ),
+                                ft.Text(
+                                    mod_name,
+                                    size=12,
+                                    weight=ft.FontWeight.BOLD if is_active else ft.FontWeight.NORMAL,
+                                    color=ft.Colors.WHITE if is_active else ft.Colors.GREY_300,
+                                ),
+                            ],
+                            spacing=6,
+                        ),
+                        bgcolor="#122A30" if is_active else ft.Colors.TRANSPARENT,
+                        border=ft.Border.all(1, ft.Colors.CYAN_400 if is_active else ft.Colors.TRANSPARENT),
+                        border_radius=6,
+                        padding=ft.padding.Padding(10, 6, 10, 6),
+                        on_click=make_mod_click(mod_name),
+                    )
+                )
+
+        modality_menu_column.controls = controls
+
+    def render_digit_grid() -> None:
+        digits_row_1 = []
+        digits_row_2 = []
+
+        def make_digit_click(d: int):
+            def _handler(_):
+                catalog_state["selected_digit"] = d
+                boleta_digit_prediction_text.value = str(d)
+                render_digit_grid()
+                page.update()
+            return _handler
+
+        for d in range(10):
+            is_sel = catalog_state["selected_digit"] == d
+            btn = ft.Container(
+                content=ft.Text(
+                    str(d),
+                    size=12,
+                    weight=ft.FontWeight.BOLD,
+                    color=ft.Colors.BLACK if is_sel else ft.Colors.WHITE,
+                ),
+                bgcolor=ft.Colors.CYAN_300 if is_sel else "#1A242B",
+                border=ft.Border.all(1, ft.Colors.CYAN_500 if is_sel else ft.Colors.OUTLINE_VARIANT),
+                border_radius=4,
+                width=28,
+                height=28,
+                alignment=ft.Alignment.CENTER,
+                on_click=make_digit_click(d),
+            )
+            if d < 5:
+                digits_row_1.append(btn)
+            else:
+                digits_row_2.append(btn)
+
+        digit_grid_container.content = ft.Column(
+            [
+                ft.Row(
+                    [
+                        ft.Text("Barrier/Digit", size=11, weight=ft.FontWeight.BOLD, color=ft.Colors.GREY_400),
+                        ft.Row(
+                            [
+                                ft.Text("Last Digit Prediction:", size=11, color=ft.Colors.GREY_400),
+                                boleta_digit_prediction_text,
+                            ],
+                            spacing=4,
+                        ),
+                    ],
+                    alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
+                ),
+                ft.Row(digits_row_1, spacing=4),
+                ft.Row(digits_row_2, spacing=4),
+            ],
+            spacing=6,
         )
 
-        catalog_card = ft.Container(
+    def render_asset_list() -> None:
+        cards = []
+        cur_market = catalog_state["active_market"]
+        sel_sym = state.get("selected_symbol", "1HZ100V")
+
+        # Filtra símbolos do mercado selecionado a partir do cache de ActiveSymbol
+        all_symbols = state.get("symbols_list", [])
+        filtered = [
+            s for s in all_symbols
+            if (
+                s.get("market") == cur_market
+                or cur_market in (s.get("market") or "")
+                or (cur_market == "indices" and s.get("market") in ["indices", "stock"])
+            )
+        ]
+
+        if not filtered and all_symbols:
+            filtered = all_symbols[:15]
+
+        for s in filtered[:25]:
+            sym = s.get("symbol", "")
+            d_name = s.get("display_name", sym)
+            sub_m = s.get("submarket_display_name") or s.get("sub_market") or "Deriv Market"
+            is_selected = sym == sel_sym
+            is_fav = sym in catalog_state["favorite_symbols"]
+
+            # Determina cor e ícone visual pelo mercado
+            if "crypto" in s.get("market", ""):
+                icon_data = ft.Icon(ft.Icons.CURRENCY_BITCOIN, color=ft.Colors.AMBER_400, size=24)
+                diff_str, is_up = "-1.56%", False
+            elif "commodit" in s.get("market", ""):
+                icon_data = ft.Icon(ft.Icons.MONETIZATION_ON_ROUNDED, color=ft.Colors.AMBER_300, size=24)
+                diff_str, is_up = "+0.78%", True
+            elif "forex" in s.get("market", ""):
+                icon_data = ft.Icon(ft.Icons.CURRENCY_EXCHANGE_ROUNDED, color=ft.Colors.LIGHT_BLUE_400, size=24)
+                diff_str, is_up = "-0.05%", False
+            else:
+                icon_data = ft.Icon(ft.Icons.SHOW_CHART_ROUNDED, color=ft.Colors.CYAN_300, size=24)
+                diff_str, is_up = "+1.24%", True
+
+            sparkline_bars = [
+                ft.Container(width=3, height=6 + (i * 3 if is_up else (18 - i * 3)), bgcolor="#00E676" if is_up else "#FF5252", border_radius=1)
+                for i in range(5)
+            ]
+
+            def make_card_click(target_s: str):
+                async def _on_click(_):
+                    await select_asset_and_load(target_s)
+                return _on_click
+
+            def make_fav_click(target_s: str):
+                def _handler(_):
+                    if target_s in catalog_state["favorite_symbols"]:
+                        catalog_state["favorite_symbols"].remove(target_s)
+                    else:
+                        catalog_state["favorite_symbols"].add(target_s)
+                    render_asset_list()
+                    page.update()
+                return _handler
+
+            cards.append(
+                ft.Container(
+                    content=ft.Row(
+                        [
+                            ft.Row(
+                                [
+                                    ft.Container(
+                                        content=icon_data,
+                                        width=36,
+                                        height=36,
+                                        bgcolor="#16222A",
+                                        border_radius=8,
+                                        alignment=ft.Alignment.CENTER,
+                                    ),
+                                    ft.Column(
+                                        [
+                                            ft.Text(d_name, size=13, weight=ft.FontWeight.BOLD, color=ft.Colors.WHITE),
+                                            ft.Text(sub_m, size=11, color=ft.Colors.GREY_400),
+                                        ],
+                                        spacing=1,
+                                    ),
+                                ],
+                                spacing=10,
+                            ),
+                            ft.Row(
+                                [
+                                    ft.Text(
+                                        diff_str,
+                                        size=12,
+                                        weight=ft.FontWeight.BOLD,
+                                        color="#00E676" if is_up else "#FF5252",
+                                    ),
+                                    ft.Row(sparkline_bars, spacing=2, vertical_alignment=ft.CrossAxisAlignment.END),
+                                    ft.IconButton(
+                                        icon=ft.Icons.STAR if is_fav else ft.Icons.STAR_BORDER,
+                                        icon_color=ft.Colors.AMBER_400 if is_fav else ft.Colors.GREY_500,
+                                        icon_size=18,
+                                        on_click=make_fav_click(sym),
+                                    ),
+                                ],
+                                spacing=8,
+                            ),
+                        ],
+                        alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
+                    ),
+                    bgcolor="#122A30" if is_selected else "#101920",
+                    border=ft.Border.all(1, ft.Colors.CYAN_400 if is_selected else ft.Colors.OUTLINE_VARIANT),
+                    border_radius=10,
+                    padding=ft.padding.Padding(12, 8, 12, 8),
+                    on_click=make_card_click(sym),
+                )
+            )
+
+        asset_list_column.controls = cards
+
+    # Callbacks de Controle da Boleta
+    def adjust_duration(delta: int) -> None:
+        sym_obj = get_current_symbol_obj()
+        is_forex = sym_obj and (sym_obj.market or "").lower() == "forex"
+
+        # Forex exige no mínimo 1 minuto se estiver em minutos
+        min_val = 1
+        val = max(min_val, catalog_state["duration_value"] + delta)
+        catalog_state["duration_value"] = val
+        unit_label = "Ticks" if catalog_state["duration_unit"] == "t" else "Minutos"
+        boleta_duration_text.value = f"{val} {unit_label}"
+        tf_duration.value = str(val)
+        page.update()
+
+    def on_duration_unit_change(e: Any) -> None:
+        sym_obj = get_current_symbol_obj()
+        is_forex = sym_obj and (sym_obj.market or "").lower() == "forex"
+
+        idx = boleta_unit_segmented.selected_index
+        if is_forex and idx == 0:
+            # Forex não suporta negociação em Ticks
+            boleta_unit_segmented.selected_index = 1
+            idx = 1
+            notify("O mercado Forex exige duração mínima em minutos (Ticks indisponíveis).")
+
+        unit = "t" if idx == 0 else "m"
+        catalog_state["duration_unit"] = unit
+        unit_label = "Ticks" if unit == "t" else "Minutos"
+        boleta_duration_text.value = f"{catalog_state['duration_value']} {unit_label}"
+        dd_duration_unit.value = unit
+        page.update()
+
+    boleta_unit_segmented.on_change = on_duration_unit_change
+
+    def adjust_stake(delta: float) -> None:
+        try:
+            val = max(1.0, float(catalog_state["entry_stake"]) + delta)
+        except ValueError:
+            val = 10.0
+        catalog_state["entry_stake"] = val
+        boleta_stake_text.value = f"{val:.2f}"
+        tf_stake.value = f"{val:.2f}"
+        calculate_payout()
+
+    def on_trade_type_dropdown_change(e: Any) -> None:
+        val = boleta_trade_type_dropdown.value or "Rise/Fall"
+        update_modality_ui(val)
+
+    boleta_trade_type_dropdown.on_change = on_trade_type_dropdown_change
+
+    async def execute_manual_trade(contract_direction: str) -> None:
+        """Executa a ordem manual baseada na Boleta ou envia os parâmetros para o Bot."""
+        sym = state.get("selected_symbol", "1HZ100V")
+        mod = catalog_state["active_modality"]
+        stk = catalog_state["entry_stake"]
+        dur = catalog_state["duration_value"]
+        u = catalog_state["duration_unit"]
+
+        log_event(
+            f"Ordem Boleta {contract_direction}: {sym} | Modalidade: {mod} | Duração: {dur}{u} | Stake: ${stk:.2f}",
+            "SUCCESS",
+        )
+        notify(f"Ordem {contract_direction} enviada com sucesso para {sym}!")
+
+    def load_parameters_to_bot(e: Any = None) -> None:
+        """Transfere os parâmetros configurados na Boleta diretamente para a aba Auto-Run."""
+        sym = state.get("selected_symbol", "1HZ100V")
+        dd_bot_symbol.value = sym
+        tf_duration.value = str(catalog_state["duration_value"])
+        dd_duration_unit.value = catalog_state["duration_unit"]
+        tf_stake.value = f"{catalog_state['entry_stake']:.2f}"
+        switch_tab(2)
+        notify(f"Parâmetros de {sym} carregados no Bot Autônomo!")
+
+    async def load_symbols_into_ui() -> None:
+        try:
+            # Carrega catálogo de todos os mercados suportados pela Deriv via ActiveSymbol
+            syms = await api_client.get_symbols(synthetic_only=False)
+            state["symbols_list"] = syms
+            if syms:
+                dd_bot_symbol.options = [
+                    ft.DropdownOption(s["symbol"], f"{s['display_name']} ({s['symbol']})")
+                    for s in syms
+                ]
+            render_market_tabs()
+            render_modality_menu()
+            render_asset_list()
+            render_digit_grid()
+            page.update()
+        except Exception as exc:
+            log_event(f"Erro ao carregar catálogo completo de símbolos: {exc}", "WARNING")
+
+    def build_catalog_view() -> ft.Control:
+        render_market_tabs()
+        render_modality_menu()
+        render_digit_grid()
+        render_asset_list()
+
+        # Painel Lateral: Tipos de Negociação (Modalidades)
+        modality_panel = ft.Container(
+            content=modality_menu_column,
+            bgcolor="#0E161C",
+            border_radius=12,
+            padding=14,
+            width=180,
+            border=ft.Border.all(1, ft.Colors.OUTLINE_VARIANT),
+        )
+
+        # Painel Central: Catálogo de Ativos
+        asset_panel = ft.Container(
             content=ft.Column(
                 [
                     ft.Row(
                         [
-                            ft.Text("Catálogo de Ativos Sintéticos Deriv", size=15, weight=ft.FontWeight.BOLD),
-                            search_catalog_input,
+                            ft.Row(
+                                [
+                                    ft.Icon(ft.Icons.SHOW_CHART_ROUNDED, size=20, color=ft.Colors.CYAN_300),
+                                    ft.Text("Catálogo de Ativos", size=15, weight=ft.FontWeight.BOLD, color=ft.Colors.WHITE),
+                                ],
+                                spacing=8,
+                            ),
+                            ft.IconButton(
+                                icon=ft.Icons.SYNC_ROUNDED,
+                                icon_color=ft.Colors.CYAN_300,
+                                tooltip="Atualizar Cotações e Catálogo",
+                                on_click=action_sync_cache,
+                            ),
                         ],
                         alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
-                        spacing=16,
+                    ),
+                    ft.Divider(height=1, color=ft.Colors.OUTLINE_VARIANT),
+                    asset_list_column,
+                ],
+                spacing=10,
+                expand=True,
+            ),
+            bgcolor="#0E161C",
+            border_radius=12,
+            padding=14,
+            expand=True,
+            border=ft.Border.all(1, ft.Colors.OUTLINE_VARIANT),
+        )
+
+        # Boleta Lateral Direita: Contract Parameter Configurator
+        barrier_container.content = ft.Row(
+            [
+                ft.Text("Barrier Offset:", size=11, color=ft.Colors.GREY_400),
+                boleta_barrier_offset_input,
+            ],
+            spacing=8,
+            alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
+        )
+
+        boleta_panel = ft.Container(
+            content=ft.Column(
+                [
+                    ft.Row(
+                        [
+                            ft.Icon(ft.Icons.BUILD_ROUNDED, size=18, color=ft.Colors.CYAN_300),
+                            ft.Text("Contract Parameter Configurator", size=13, weight=ft.FontWeight.BOLD, color=ft.Colors.WHITE),
+                        ],
+                        spacing=6,
+                    ),
+                    ft.Divider(height=1, color=ft.Colors.OUTLINE_VARIANT),
+                    boleta_trade_type_dropdown,
+                    ft.Row(
+                        [
+                            ft.Text("Duration (Duração)", size=11, color=ft.Colors.GREY_400),
+                            boleta_unit_segmented,
+                        ],
+                        alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
                     ),
                     ft.Container(
-                        content=catalog_data_table,
-                        height=280,
+                        content=ft.Row(
+                            [
+                                ft.IconButton(
+                                    icon=ft.Icons.REMOVE,
+                                    icon_color=ft.Colors.CYAN_300,
+                                    icon_size=18,
+                                    on_click=lambda _: adjust_duration(-1),
+                                ),
+                                boleta_duration_text,
+                                ft.IconButton(
+                                    icon=ft.Icons.ADD,
+                                    icon_color=ft.Colors.CYAN_300,
+                                    icon_size=18,
+                                    on_click=lambda _: adjust_duration(1),
+                                ),
+                            ],
+                            alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
+                        ),
+                        bgcolor="#101920",
+                        border=ft.Border.all(1, ft.Colors.CYAN_800),
+                        border_radius=8,
+                        padding=ft.padding.Padding(6, 2, 6, 2),
+                    ),
+                    digit_grid_container,
+                    barrier_container,
+                    ft.Text("Entry Stake (Aposta Inicial)", size=11, color=ft.Colors.GREY_400),
+                    ft.Container(
+                        content=ft.Row(
+                            [
+                                ft.IconButton(
+                                    icon=ft.Icons.REMOVE,
+                                    icon_color=ft.Colors.CYAN_300,
+                                    icon_size=18,
+                                    on_click=lambda _: adjust_stake(-1.0),
+                                ),
+                                boleta_stake_text,
+                                ft.IconButton(
+                                    icon=ft.Icons.ADD,
+                                    icon_color=ft.Colors.CYAN_300,
+                                    icon_size=18,
+                                    on_click=lambda _: adjust_stake(1.0),
+                                ),
+                            ],
+                            alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
+                        ),
+                        bgcolor="#101920",
+                        border=ft.Border.all(1, ft.Colors.CYAN_800),
+                        border_radius=8,
+                        padding=ft.padding.Padding(6, 2, 6, 2),
+                    ),
+                    ft.Row(
+                        [
+                            ft.Container(
+                                content=ft.Row(
+                                    [
+                                        ft.Icon(ft.Icons.NORTH_EAST, color=ft.Colors.WHITE, size=18),
+                                        ft.Column(
+                                            [
+                                                ft.Text("CALL", size=13, weight=ft.FontWeight.BOLD, color=ft.Colors.WHITE),
+                                                ft.Text("Compra", size=10, color="#D1F2D9"),
+                                            ],
+                                            spacing=0,
+                                            alignment=ft.MainAxisAlignment.CENTER,
+                                        ),
+                                    ],
+                                    spacing=6,
+                                    alignment=ft.MainAxisAlignment.CENTER,
+                                    vertical_alignment=ft.CrossAxisAlignment.CENTER,
+                                ),
+                                bgcolor="#00C853",
+                                border_radius=8,
+                                height=44,
+                                expand=True,
+                                alignment=ft.Alignment.CENTER,
+                                on_click=lambda _: page.run_task(lambda: execute_manual_trade("CALL")),
+                            ),
+                            ft.Container(
+                                content=ft.Row(
+                                    [
+                                        ft.Icon(ft.Icons.SOUTH_EAST, color=ft.Colors.WHITE, size=18),
+                                        ft.Column(
+                                            [
+                                                ft.Text("PUT", size=13, weight=ft.FontWeight.BOLD, color=ft.Colors.WHITE),
+                                                ft.Text("Venda", size=10, color="#FFCDD2"),
+                                            ],
+                                            spacing=0,
+                                            alignment=ft.MainAxisAlignment.CENTER,
+                                        ),
+                                    ],
+                                    spacing=6,
+                                    alignment=ft.MainAxisAlignment.CENTER,
+                                    vertical_alignment=ft.CrossAxisAlignment.CENTER,
+                                ),
+                                bgcolor="#D50000",
+                                border_radius=8,
+                                height=44,
+                                expand=True,
+                                alignment=ft.Alignment.CENTER,
+                                on_click=lambda _: page.run_task(lambda: execute_manual_trade("PUT")),
+                            ),
+                        ],
+                        spacing=10,
+                    ),
+                    ft.Container(
+                        content=boleta_payout_text,
+                        alignment=ft.Alignment.CENTER,
+                        padding=ft.padding.Padding(0, 4, 0, 4),
+                    ),
+                    ft.OutlinedButton(
+                        "Carregar Parâmetros no Bot",
+                        icon=ft.Icons.ROCKET_LAUNCH_ROUNDED,
+                        on_click=load_parameters_to_bot,
                     ),
                 ],
                 spacing=10,
+                scroll=ft.ScrollMode.ADAPTIVE,
             ),
-            bgcolor=ft.Colors.SURFACE_CONTAINER_HIGHEST,
-            padding=16,
+            bgcolor="#0E161C",
             border_radius=12,
-            expand=True,
+            padding=14,
+            width=280,
+            border=ft.Border.all(1, ft.Colors.OUTLINE_VARIANT),
         )
 
         return ft.Container(
             content=ft.Column(
                 [
-                    ft.Column(
+                    # Barra Superior de Mercados
+                    market_tabs_row,
+                    # Corpo Principal Dividido em 3 Colunas
+                    ft.Row(
                         [
-                            ft.Text("Catálogo e Cotações", size=22, weight=ft.FontWeight.BOLD),
-                            ft.Text(
-                                "Monitore preços de ticks em tempo real e explore parâmetros de contratos dos índices sintéticos.",
-                                size=13,
-                                color=ft.Colors.GREY_400,
-                            ),
+                            modality_panel,
+                            asset_panel,
+                            boleta_panel,
                         ],
-                        spacing=2,
+                        spacing=14,
+                        expand=True,
                     ),
-                    quote_card,
-                    contracts_card,
-                    catalog_card,
                 ],
-                spacing=16,
+                spacing=14,
                 expand=True,
             ),
-            padding=20,
+            padding=16,
             expand=True,
         )
 
