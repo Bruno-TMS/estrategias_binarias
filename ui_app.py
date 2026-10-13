@@ -290,175 +290,153 @@ async def main(page: ft.Page) -> None:
         page.update()
 
     # --- Elementos da Barra Superior (AppBar) ---
-    appbar_api_mode = ft.Chip(
-        label=ft.Text("Modo: Inicializando...", size=11, color=ft.Colors.GREY_300),
-        bgcolor=ft.Colors.SURFACE_CONTAINER_HIGH,
-        border_side=ft.border.BorderSide(1, ft.Colors.OUTLINE_VARIANT),
-    )
     appbar_ws_icon = ft.Icon(
-        ft.Icons.WIFI_OFF_ROUNDED,
+        ft.Icons.WIFI,
         size=18,
-        color=ft.Colors.RED_ACCENT_400,
+        color="#FF5252",
     )
     appbar_ws_status = ft.Container(
         content=appbar_ws_icon,
         tooltip="WebSocket Deriv: Desconectado / Sem Sessão",
-        bgcolor=ft.Colors.RED_900,
-        border=ft.Border.all(1, ft.Colors.RED_700),
+        bgcolor="#1E1014",
+        border=ft.Border.all(1, "#FF5252"),
         border_radius=8,
-        padding=ft.padding.Padding(8, 6, 8, 6),
+        height=36,
+        padding=ft.padding.Padding(10, 0, 10, 0),
         alignment=ft.Alignment.CENTER,
         animate=ft.Animation(250, ft.AnimationCurve.EASE_OUT),
     )
-    appbar_account_chip = ft.Chip(
-        leading=ft.Icon(ft.Icons.ACCOUNT_CIRCLE_ROUNDED, size=16, color=ft.Colors.GREY_400),
-        label=ft.Text("Conta: Aguardando", size=11, color=ft.Colors.GREY_300),
-        bgcolor=ft.Colors.SURFACE_CONTAINER_HIGH,
-        border_side=ft.border.BorderSide(1, ft.Colors.OUTLINE_VARIANT),
-    )
-    appbar_balance_chip = ft.Chip(
-        label=ft.Text(f"Saldo: {format_currency(0.0)}", size=11, weight=ft.FontWeight.BOLD, color=ft.Colors.GREEN_100),
-        bgcolor=ft.Colors.GREEN_900,
-        border_side=ft.border.BorderSide(1, ft.Colors.GREEN_700),
-    )
-    appbar_clock_chip = ft.Chip(
-        leading=ft.Icon(ft.Icons.SCHEDULE_ROUNDED, size=16, color=ft.Colors.CYAN_200),
-        label=ft.Text("--/--/-- --:--:--", size=11, weight=ft.FontWeight.W_600, color=ft.Colors.CYAN_100),
-        bgcolor=ft.Colors.SURFACE_CONTAINER_HIGH,
-        border_side=ft.border.BorderSide(1, ft.Colors.CYAN_800),
+    appbar_clock_icon = ft.Icon(ft.Icons.SCHEDULE_ROUNDED, size=16, color=ft.Colors.CYAN_200)
+    appbar_clock_text = ft.Text("--/--/-- --:--:--", size=11, weight=ft.FontWeight.W_600, color=ft.Colors.WHITE)
+    appbar_clock_chip = ft.Container(
+        content=ft.Row(
+            [appbar_clock_icon, appbar_clock_text],
+            spacing=6,
+            alignment=ft.MainAxisAlignment.CENTER,
+            vertical_alignment=ft.CrossAxisAlignment.CENTER,
+        ),
+        bgcolor="#121C24",
+        border=ft.Border.all(1, ft.Colors.CYAN_700),
+        border_radius=8,
+        height=36,
+        padding=ft.padding.Padding(10, 0, 10, 0),
+        alignment=ft.Alignment.CENTER,
         tooltip="Relógio Oficial Deriv (UTC) [DD/MM/AA HH:MM:SS]",
     )
-    appbar_session_chip = ft.Chip(
-        leading=ft.Icon(ft.Icons.TIMER_ROUNDED, size=16, color=ft.Colors.AMBER_200),
-        label=ft.Text("Sessão: --", size=11, weight=ft.FontWeight.BOLD, color=ft.Colors.GREY_400),
-        bgcolor=ft.Colors.SURFACE_CONTAINER_HIGH,
-        border_side=ft.border.BorderSide(1, ft.Colors.OUTLINE_VARIANT),
+
+    appbar_session_icon = ft.Icon(ft.Icons.TIMER_ROUNDED, size=16, color=ft.Colors.AMBER_200)
+    appbar_session_text = ft.Text("Sessão: --", size=11, weight=ft.FontWeight.BOLD, color=ft.Colors.WHITE)
+    appbar_session_chip = ft.Container(
+        content=ft.Row(
+            [appbar_session_icon, appbar_session_text],
+            spacing=6,
+            alignment=ft.MainAxisAlignment.CENTER,
+            vertical_alignment=ft.CrossAxisAlignment.CENTER,
+        ),
+        bgcolor="#1C1814",
+        border=ft.Border.all(1, ft.Colors.OUTLINE_VARIANT),
+        border_radius=8,
+        height=36,
+        padding=ft.padding.Padding(10, 0, 10, 0),
+        alignment=ft.Alignment.CENTER,
         tooltip="Tempo Logado na Sessão Ativa [0d 0h 0m]",
     )
 
-    def update_header_status() -> None:
-        mode_text = "API REST (:8000)" if api_client.mode == "api" else "Serviços Diretos"
-        appbar_api_mode.label = ft.Text(f"Modo: {mode_text}", size=11, color=ft.Colors.GREY_200)
+    appbar_account_icon = ft.Icon(ft.Icons.ACCOUNT_CIRCLE_ROUNDED, size=16, color=ft.Colors.WHITE)
+    appbar_account_text = ft.Text("Conta: Aguardando", size=11, color=ft.Colors.WHITE)
+    appbar_account_chip = ft.Container(
+        content=ft.Row(
+            [appbar_account_icon, appbar_account_text],
+            spacing=6,
+            alignment=ft.MainAxisAlignment.CENTER,
+            vertical_alignment=ft.CrossAxisAlignment.CENTER,
+        ),
+        bgcolor="#1C1814",
+        border=ft.Border.all(1, ft.Colors.OUTLINE_VARIANT),
+        border_radius=8,
+        height=36,
+        padding=ft.padding.Padding(10, 0, 10, 0),
+        alignment=ft.Alignment.CENTER,
+    )
 
+    appbar_balance_icon = ft.Icon(ft.Icons.ACCOUNT_BALANCE_WALLET_ROUNDED, size=16, color=ft.Colors.GREEN_300)
+    appbar_balance_text = ft.Text(f"Saldo: {format_currency(0.0)}", size=11, weight=ft.FontWeight.BOLD, color=ft.Colors.WHITE)
+    appbar_balance_chip = ft.Container(
+        content=ft.Row(
+            [appbar_balance_icon, appbar_balance_text],
+            spacing=6,
+            alignment=ft.MainAxisAlignment.CENTER,
+            vertical_alignment=ft.CrossAxisAlignment.CENTER,
+        ),
+        bgcolor="#0F2318",
+        border=ft.Border.all(1, ft.Colors.GREEN_700),
+        border_radius=8,
+        height=36,
+        padding=ft.padding.Padding(10, 0, 10, 0),
+        alignment=ft.Alignment.CENTER,
+    )
+
+    def update_header_status() -> None:
         if state["ws_connected"]:
-            appbar_ws_icon.name = ft.Icons.WIFI_ROUNDED
-            appbar_ws_icon.color = ft.Colors.GREEN_ACCENT_400
-            appbar_ws_status.bgcolor = ft.Colors.GREEN_900
-            appbar_ws_status.border = ft.Border.all(1, ft.Colors.GREEN_600)
+            appbar_ws_icon.name = ft.Icons.WIFI
+            appbar_ws_icon.color = "#00E676"
+            appbar_ws_status.bgcolor = "#0B2014"
+            appbar_ws_status.border = ft.Border.all(1, "#00E676")
             appbar_ws_status.tooltip = "WebSocket Deriv: Conectado e Ativo"
         else:
-            appbar_ws_icon.name = ft.Icons.WIFI_OFF_ROUNDED
-            appbar_ws_icon.color = ft.Colors.RED_ACCENT_400
-            appbar_ws_status.bgcolor = ft.Colors.RED_900
-            appbar_ws_status.border = ft.Border.all(1, ft.Colors.RED_600)
+            appbar_ws_icon.name = ft.Icons.WIFI
+            appbar_ws_icon.color = "#FF5252"
+            appbar_ws_status.bgcolor = "#1E1014"
+            appbar_ws_status.border = ft.Border.all(1, "#FF5252")
             appbar_ws_status.tooltip = "WebSocket Deriv: Desconectado / Sem Sessão"
 
         if state["is_authenticated"]:
             tag = "Demo" if state["is_virtual"] else "Real"
-            appbar_account_chip.label = ft.Text(
-                f"{state['loginid']} ({tag})",
-                size=11,
-                weight=ft.FontWeight.BOLD,
-                color=ft.Colors.TEAL_100 if state["is_virtual"] else ft.Colors.AMBER_100,
+            appbar_account_text.value = f"{state['loginid']} ({tag})"
+            appbar_account_text.weight = ft.FontWeight.BOLD
+            appbar_account_text.color = ft.Colors.WHITE
+            appbar_account_chip.bgcolor = "#0E241F" if state["is_virtual"] else "#2A1D0E"
+            appbar_account_chip.border = ft.Border.all(
+                1, ft.Colors.TEAL_600 if state["is_virtual"] else ft.Colors.AMBER_600
             )
-            appbar_account_chip.bgcolor = ft.Colors.TEAL_900 if state["is_virtual"] else ft.Colors.AMBER_900
-            appbar_account_chip.border_side = ft.border.BorderSide(
-                1, ft.Colors.TEAL_700 if state["is_virtual"] else ft.Colors.AMBER_700
-            )
-            appbar_account_chip.leading = ft.Icon(
-                ft.Icons.VERIFIED_USER_ROUNDED,
-                size=16,
-                color=ft.Colors.TEAL_300 if state["is_virtual"] else ft.Colors.AMBER_300,
-            )
+            appbar_account_icon.name = ft.Icons.VERIFIED_USER_ROUNDED
+            appbar_account_icon.color = ft.Colors.TEAL_300 if state["is_virtual"] else ft.Colors.AMBER_300
         else:
-            appbar_account_chip.label = ft.Text("Não Autenticado", size=11, color=ft.Colors.GREY_400)
-            appbar_account_chip.bgcolor = ft.Colors.SURFACE_CONTAINER_HIGH
-            appbar_account_chip.border_side = ft.border.BorderSide(1, ft.Colors.OUTLINE_VARIANT)
-            appbar_account_chip.leading = ft.Icon(
-                ft.Icons.ACCOUNT_CIRCLE_ROUNDED,
-                size=16,
-                color=ft.Colors.GREY_400,
-            )
+            appbar_account_text.value = "Não Autenticado"
+            appbar_account_text.weight = ft.FontWeight.NORMAL
+            appbar_account_text.color = ft.Colors.WHITE
+            appbar_account_chip.bgcolor = "#1C1814"
+            appbar_account_chip.border = ft.Border.all(1, ft.Colors.OUTLINE_VARIANT)
+            appbar_account_icon.name = ft.Icons.ACCOUNT_CIRCLE_ROUNDED
+            appbar_account_icon.color = ft.Colors.WHITE
 
         bal = state["balance"]
         curr = state["currency"]
-        appbar_balance_chip.label = ft.Text(
-            f"Saldo: {format_currency(bal, curr)}",
-            size=11,
-            weight=ft.FontWeight.BOLD,
-            color=ft.Colors.GREEN_100,
-        )
+        appbar_balance_text.value = f"Saldo: {format_currency(bal, curr)}"
+        appbar_balance_text.color = ft.Colors.WHITE
 
-        appbar_clock_chip.label = ft.Text(
-            f"{state.get('server_time_utc', '--/--/-- --:--:--')}",
-            size=11,
-            weight=ft.FontWeight.W_600,
-            color=ft.Colors.CYAN_100,
-        )
+        srv_time = state.get("server_time_utc", "--/--/-- --:--:--")
+        appbar_clock_text.value = f"{srv_time}"
+        appbar_clock_text.color = ft.Colors.WHITE
+
         if state.get("is_authenticated", False) and time_operations.is_logged_in:
-            appbar_session_chip.bgcolor = ft.Colors.AMBER_900
-            appbar_session_chip.border_side = ft.border.BorderSide(1, ft.Colors.AMBER_700)
-            appbar_session_chip.label = ft.Text(
-                f"Sessão: {state.get('tempo_logado_str', '--')}",
-                size=11,
-                weight=ft.FontWeight.BOLD,
-                color=ft.Colors.AMBER_100,
-            )
+            appbar_session_chip.bgcolor = "#2A1D0E"
+            appbar_session_chip.border = ft.Border.all(1, ft.Colors.AMBER_600)
+            appbar_session_text.value = f"Sessão: {state.get('tempo_logado_str', '--')}"
+            appbar_session_text.color = ft.Colors.WHITE
+            appbar_session_icon.color = ft.Colors.AMBER_300
         else:
-            appbar_session_chip.bgcolor = ft.Colors.SURFACE_CONTAINER_HIGH
-            appbar_session_chip.border_side = ft.border.BorderSide(1, ft.Colors.OUTLINE_VARIANT)
-            appbar_session_chip.label = ft.Text("Sessão: --", size=11, color=ft.Colors.GREY_400)
+            appbar_session_chip.bgcolor = "#1C1814"
+            appbar_session_chip.border = ft.Border.all(1, ft.Colors.OUTLINE_VARIANT)
+            appbar_session_text.value = "Sessão: --"
+            appbar_session_text.color = ft.Colors.WHITE
+            appbar_session_icon.color = ft.Colors.AMBER_200
 
         page.update()
 
     # =========================================================================
     # VIEW 1: DASHBOARD GERAL
     # =========================================================================
-    dash_balance_text = ft.Text(
-        format_currency(0.0),
-        size=26,
-        weight=ft.FontWeight.BOLD,
-        color=ft.Colors.GREEN_400,
-    )
-    dash_account_id_text = ft.Text("Titular: Standby | ID: --", size=12, color=ft.Colors.GREY_400)
-    dash_account_badge = ft.Container(
-        content=ft.Text("Standby", size=10, weight=ft.FontWeight.BOLD, color=ft.Colors.GREY_300),
-        bgcolor=ft.Colors.SURFACE_CONTAINER_HIGH,
-        border_radius=4,
-        padding=ft.padding.Padding(6, 2, 6, 2),
-    )
-    dash_ws_text = ft.Text("Desconectado", size=20, weight=ft.FontWeight.BOLD, color=ft.Colors.AMBER_400)
-    from core.config import settings
-    dash_ws_subtext = ft.Text(f"App ID: {settings.deriv_app_id} | Options WS", size=12, color=ft.Colors.GREY_400)
-    dash_backend_text = ft.Text("Detectando...", size=20, weight=ft.FontWeight.BOLD, color=ft.Colors.CYAN_400)
-    dash_backend_subtext = ft.Text("SQLite: trading_memory.db", size=12, color=ft.Colors.GREY_400)
-    dash_session_profit_text = ft.Text("USD +0.00", size=20, weight=ft.FontWeight.BOLD, color=ft.Colors.WHITE)
-    dash_session_subtext = ft.Text("0 ciclos | 0W - 0L", size=12, color=ft.Colors.GREY_400)
-
-    # Controles de Sincronização Temporal e Tempo Logado
-    dash_server_time_text = ft.Text(
-        "--:--:-- UTC",
-        size=22,
-        weight=ft.FontWeight.BOLD,
-        color=ft.Colors.CYAN_300,
-    )
-    dash_tempo_logado_text = ft.Text(
-        "--",
-        size=22,
-        weight=ft.FontWeight.BOLD,
-        color=ft.Colors.AMBER_300,
-    )
-    dash_session_start_text = ft.Text(
-        "Sessão: Não iniciada",
-        size=11,
-        color=ft.Colors.GREY_400,
-    )
-    dash_session_badge = ft.Container(
-        content=ft.Text("Standby", size=10, weight=ft.FontWeight.BOLD, color=ft.Colors.GREY_300),
-        bgcolor=ft.Colors.SURFACE_CONTAINER_HIGH,
-        border_radius=4,
-        padding=ft.padding.Padding(6, 2, 6, 2),
-    )
 
     # Controles da Aba de Ajustes (Settings)
     from services.time_operations import time_operations
@@ -485,51 +463,27 @@ async def main(page: ft.Page) -> None:
         srv_full = state.get("server_time_full_utc", "--")
         t_logado = state.get("tempo_logado_str", "0d 0h 0m")
 
-        appbar_clock_chip.label = ft.Text(
-            f"{srv_time}",
-            size=11,
-            weight=ft.FontWeight.W_600,
-            color=ft.Colors.CYAN_100,
-        )
-        dash_server_time_text.value = f"{srv_time} (UTC)"
+        appbar_clock_text.value = f"{srv_time}"
+        appbar_clock_text.color = ft.Colors.WHITE
         settings_server_time_detail.value = f"Relógio Oficial Deriv (UTC): {srv_time}"
 
         if state.get("is_authenticated") and time_operations.is_logged_in:
-            appbar_session_chip.bgcolor = ft.Colors.AMBER_900
-            appbar_session_chip.border_side = ft.border.BorderSide(1, ft.Colors.AMBER_700)
-            appbar_session_chip.label = ft.Text(
-                f"Sessão: {t_logado}",
-                size=11,
-                weight=ft.FontWeight.BOLD,
-                color=ft.Colors.AMBER_100,
-            )
-            dash_tempo_logado_text.value = t_logado
-            dash_session_badge.content = ft.Text(
-                "Sessão Ativa",
-                size=10,
-                weight=ft.FontWeight.BOLD,
-                color=ft.Colors.GREEN_200,
-            )
-            dash_session_badge.bgcolor = ft.Colors.GREEN_900
+            appbar_session_chip.bgcolor = "#2A1D0E"
+            appbar_session_chip.border = ft.Border.all(1, ft.Colors.AMBER_600)
+            appbar_session_text.value = f"Sessão: {t_logado}"
+            appbar_session_text.color = ft.Colors.WHITE
+            appbar_session_icon.color = ft.Colors.AMBER_300
             settings_tempo_logado_detail.value = f"Duração Acumulada: {t_logado}"
 
             if time_operations.inicio_sessao_utc:
                 dt_str = time_operations.inicio_sessao_utc.strftime("%d/%m/%y %H:%M:%S")
-                dash_session_start_text.value = f"Início: {dt_str}"
                 settings_session_start_detail.value = f"Início da Sessão: {dt_str} UTC"
         else:
-            appbar_session_chip.bgcolor = ft.Colors.SURFACE_CONTAINER_HIGH
-            appbar_session_chip.border_side = ft.border.BorderSide(1, ft.Colors.OUTLINE_VARIANT)
-            appbar_session_chip.label = ft.Text("Sessão: --", size=11, color=ft.Colors.GREY_400)
-            dash_tempo_logado_text.value = "--"
-            dash_session_badge.content = ft.Text(
-                "Aguardando",
-                size=10,
-                weight=ft.FontWeight.BOLD,
-                color=ft.Colors.GREY_400,
-            )
-            dash_session_badge.bgcolor = ft.Colors.SURFACE_CONTAINER_HIGH
-            dash_session_start_text.value = "Sessão: Não iniciada"
+            appbar_session_chip.bgcolor = "#1C1814"
+            appbar_session_chip.border = ft.Border.all(1, ft.Colors.OUTLINE_VARIANT)
+            appbar_session_text.value = "Sessão: --"
+            appbar_session_text.color = ft.Colors.WHITE
+            appbar_session_icon.color = ft.Colors.AMBER_200
             settings_session_start_detail.value = "Início da Sessão: Não autenticado"
             settings_tempo_logado_detail.value = "Duração Acumulada: --"
 
@@ -735,30 +689,6 @@ async def main(page: ft.Page) -> None:
             state["is_authenticated"] = True
             state["ws_connected"] = True
 
-            dash_balance_text.value = format_currency(state["balance"], state["currency"])
-            dash_account_id_text.value = f"Titular: {state['fullname']} | ID: {state['loginid']}"
-            dash_ws_text.value = "Conectado"
-            dash_ws_text.color = ft.Colors.GREEN_400
-            dash_backend_text.value = "FastAPI :8000" if api_client.mode == "api" else "Serviços Diretos"
-
-            if state["is_virtual"]:
-                dash_account_badge.content = ft.Text(
-                    "Conta Demo (Virtual)",
-                    size=10,
-                    weight=ft.FontWeight.BOLD,
-                    color=ft.Colors.TEAL_200,
-                )
-                dash_account_badge.bgcolor = ft.Colors.TEAL_900
-            else:
-                dash_account_badge.content = ft.Text(
-                    "Conta Real",
-                    size=10,
-                    weight=ft.FontWeight.BOLD,
-                    color=ft.Colors.AMBER_200,
-                )
-                dash_account_badge.bgcolor = ft.Colors.AMBER_900
-
-            dash_ws_subtext.value = f"App ID: {settings.deriv_app_id} | Options WS"
             update_header_status()
 
             acc_type_label = "Conta Demo" if state["is_virtual"] else "Conta Real"
@@ -771,15 +701,6 @@ async def main(page: ft.Page) -> None:
         except Exception as exc:
             state["is_authenticated"] = False
             state["ws_connected"] = False
-            dash_ws_text.value = "Falha Auth"
-            dash_ws_text.color = ft.Colors.RED_400
-            dash_account_badge.content = ft.Text(
-                "Não Autenticado",
-                size=10,
-                weight=ft.FontWeight.BOLD,
-                color=ft.Colors.RED_200,
-            )
-            dash_account_badge.bgcolor = ft.Colors.RED_900
             update_header_status()
             log_event(f"Falha de autenticação junto à Deriv: {exc}", "ERROR")
             notify(f"Erro ao autenticar: {exc}", is_error=True)
@@ -800,15 +721,6 @@ async def main(page: ft.Page) -> None:
                 state["loginid"] = str(bal_data.get("loginid"))
             state["ws_connected"] = True
 
-            dash_balance_text.value = format_currency(state["balance"], state["currency"])
-            if state["fullname"] and state["fullname"] != "--":
-                dash_account_id_text.value = f"Titular: {state['fullname']} | ID: {state['loginid']}"
-            else:
-                dash_account_id_text.value = f"Conta: {state['loginid']} (Ativa)"
-            dash_ws_text.value = "Conectado"
-            dash_ws_text.color = ft.Colors.GREEN_400
-            dash_backend_text.value = "FastAPI :8000" if api_client.mode == "api" else "Serviços Diretos"
-
             update_header_status()
             log_event(
                 f"Saldo atualizado: {format_currency(state['balance'], state['currency'])} (ID: {state['loginid']})",
@@ -817,8 +729,6 @@ async def main(page: ft.Page) -> None:
             notify(f"Saldo atualizado: {format_currency(state['balance'], state['currency'])}")
         except Exception as exc:
             state["ws_connected"] = False
-            dash_ws_text.value = "Falha de Conexão"
-            dash_ws_text.color = ft.Colors.RED_400
             update_header_status()
             log_event(f"Erro ao consultar saldo: {exc}", "ERROR")
             notify(f"Erro ao consultar saldo: {exc}", is_error=True)
@@ -828,15 +738,11 @@ async def main(page: ft.Page) -> None:
         try:
             await api_client.get_symbols(synthetic_only=True)
             state["ws_connected"] = True
-            dash_ws_text.value = "Conectado"
-            dash_ws_text.color = ft.Colors.GREEN_400
             update_header_status()
             log_event("Comunicação com Deriv estabelecida com sucesso.", "SUCCESS")
             notify("Deriv WebSocket respondendo normalmente.")
         except Exception as exc:
             state["ws_connected"] = False
-            dash_ws_text.value = "Desconectado"
-            dash_ws_text.color = ft.Colors.RED_400
             update_header_status()
             log_event(f"Falha de comunicação: {exc}", "ERROR")
             notify(f"Erro ao testar ping: {exc}", is_error=True)
@@ -857,289 +763,6 @@ async def main(page: ft.Page) -> None:
         log_event("Console de atividades limpo.", "INFO")
 
     def build_dashboard_view() -> ft.Control:
-        kpi_row = ft.Row(
-            controls=[
-                ft.Container(
-                    content=ft.Column(
-                        [
-                            ft.Row(
-                                [
-                                    ft.Row(
-                                        [
-                                            ft.Icon(
-                                                ft.Icons.ACCOUNT_BALANCE_WALLET_ROUNDED,
-                                                color=ft.Colors.GREEN_400,
-                                                size=24,
-                                            ),
-                                            ft.Text(
-                                                "Saldo & Conta",
-                                                size=13,
-                                                weight=ft.FontWeight.W_500,
-                                                color=ft.Colors.GREY_300,
-                                            ),
-                                        ],
-                                        spacing=6,
-                                    ),
-                                    dash_account_badge,
-                                ],
-                                alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
-                            ),
-                            dash_balance_text,
-                            dash_account_id_text,
-                        ],
-                        spacing=6,
-                    ),
-                    bgcolor=ft.Colors.SURFACE_CONTAINER_HIGHEST,
-                    padding=16,
-                    border_radius=12,
-                    expand=True,
-                ),
-                ft.Container(
-                    content=ft.Column(
-                        [
-                            ft.Row(
-                                [
-                                    ft.Icon(ft.Icons.WIFI_ROUNDED, color=ft.Colors.CYAN_400, size=24),
-                                    ft.Text("Deriv WebSocket", size=13, weight=ft.FontWeight.W_500, color=ft.Colors.GREY_300),
-                                ],
-                                alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
-                            ),
-                            dash_ws_text,
-                            dash_ws_subtext,
-                        ],
-                        spacing=6,
-                    ),
-                    bgcolor=ft.Colors.SURFACE_CONTAINER_HIGHEST,
-                    padding=16,
-                    border_radius=12,
-                    expand=True,
-                ),
-                ft.Container(
-                    content=ft.Column(
-                        [
-                            ft.Row(
-                                [
-                                    ft.Icon(ft.Icons.HUB_ROUNDED, color=ft.Colors.PURPLE_300, size=24),
-                                    ft.Text("Arquitetura Backend", size=13, weight=ft.FontWeight.W_500, color=ft.Colors.GREY_300),
-                                ],
-                                alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
-                            ),
-                            dash_backend_text,
-                            dash_backend_subtext,
-                        ],
-                        spacing=6,
-                    ),
-                    bgcolor=ft.Colors.SURFACE_CONTAINER_HIGHEST,
-                    padding=16,
-                    border_radius=12,
-                    expand=True,
-                ),
-                ft.Container(
-                    content=ft.Column(
-                        [
-                            ft.Row(
-                                [
-                                    ft.Icon(ft.Icons.INSIGHTS_ROUNDED, color=ft.Colors.AMBER_400, size=24),
-                                    ft.Text("Sessão do Bot", size=13, weight=ft.FontWeight.W_500, color=ft.Colors.GREY_300),
-                                ],
-                                alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
-                            ),
-                            dash_session_profit_text,
-                            dash_session_subtext,
-                        ],
-                        spacing=6,
-                    ),
-                    bgcolor=ft.Colors.SURFACE_CONTAINER_HIGHEST,
-                    padding=16,
-                    border_radius=12,
-                    expand=True,
-                ),
-            ],
-            spacing=16,
-        )
-
-        time_sync_card = ft.Container(
-            content=ft.Column(
-                [
-                    ft.Row(
-                        [
-                            ft.Row(
-                                [
-                                    ft.Icon(ft.Icons.ACCESS_TIME_ROUNDED, color=ft.Colors.CYAN_400, size=22),
-                                    ft.Text("Sincronização Temporal & Sessão Ativa", size=15, weight=ft.FontWeight.BOLD),
-                                ],
-                                spacing=8,
-                            ),
-                            ft.Row(
-                                [
-                                    dash_session_badge,
-                                ],
-                                spacing=8,
-                                wrap=False,
-                            ),
-                        ],
-                        alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
-                        vertical_alignment=ft.CrossAxisAlignment.CENTER,
-                    ),
-                    ft.Row(
-                        [
-                            ft.Container(
-                                content=ft.Column(
-                                    [
-                                        ft.Text("Relógio Oficial Deriv (UTC)", size=12, color=ft.Colors.GREY_400),
-                                        dash_server_time_text,
-                                    ],
-                                    spacing=2,
-                                ),
-                                expand=True,
-                            ),
-                            ft.Container(
-                                content=ft.Column(
-                                    [
-                                        ft.Text("Tempo Logado na Sessão", size=12, color=ft.Colors.GREY_400),
-                                        dash_tempo_logado_text,
-                                        dash_session_start_text,
-                                    ],
-                                    spacing=2,
-                                ),
-                                expand=True,
-                            ),
-                        ],
-                        spacing=16,
-                    ),
-                ],
-                spacing=12,
-            ),
-            bgcolor=ft.Colors.SURFACE_CONTAINER_HIGHEST,
-            padding=16,
-            border_radius=12,
-        )
-
-        live_ticker_card = ft.Container(
-            content=ft.Column(
-                [
-                    ft.Row(
-                        [
-                            ft.Row(
-                                [
-                                    ft.Icon(
-                                        ft.Icons.STREAM_ROUNDED,
-                                        color=ft.Colors.CYAN_400,
-                                        size=22,
-                                    ),
-                                    ft.Text(
-                                        "Monitor de Ticks em Tempo Real",
-                                        size=15,
-                                        weight=ft.FontWeight.BOLD,
-                                    ),
-                                    dash_live_symbol_chip,
-                                ],
-                                spacing=8,
-                            ),
-                            ft.Row(
-                                [
-                                    dash_live_status_badge,
-                                    ft.IconButton(
-                                        icon=ft.Icons.SYNC_ROUNDED,
-                                        tooltip="Reconectar Stream de Ticks",
-                                        on_click=lambda _: page.run_task(
-                                            lambda: set_active_subscription(state["selected_symbol"])
-                                        ),
-                                    ),
-                                ],
-                                spacing=6,
-                            ),
-                        ],
-                        alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
-                    ),
-                    ft.Row(
-                        [
-                            ft.Column(
-                                [
-                                    dash_live_price_text,
-                                    ft.Row(
-                                        [
-                                            dash_live_diff_icon,
-                                            dash_live_diff_text,
-                                            dash_live_time_text,
-                                        ],
-                                        spacing=6,
-                                        vertical_alignment=ft.CrossAxisAlignment.CENTER,
-                                    ),
-                                ],
-                                spacing=2,
-                            ),
-                            ft.Container(
-                                content=ft.Column(
-                                    [
-                                        ft.Text(
-                                            "Últimos Ticks (Tendência)",
-                                            size=10,
-                                            weight=ft.FontWeight.BOLD,
-                                            color=ft.Colors.GREY_400,
-                                        ),
-                                        dash_ticks_sparkline_row,
-                                    ],
-                                    spacing=4,
-                                    alignment=ft.MainAxisAlignment.END,
-                                ),
-                                padding=ft.padding.Padding(0, 0, 8, 0),
-                            ),
-                        ],
-                        alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
-                    ),
-                ],
-                spacing=10,
-            ),
-            bgcolor=ft.Colors.SURFACE_CONTAINER_HIGHEST,
-            padding=16,
-            border_radius=12,
-        )
-
-        quick_actions_card = ft.Container(
-            content=ft.Column(
-                [
-                    ft.Text("Painel de Controle Rápido", size=15, weight=ft.FontWeight.BOLD),
-                    ft.Row(
-                        [
-                            ft.FilledButton(
-                                "Autenticar Conta",
-                                icon=ft.Icons.LOCK_OPEN_ROUNDED,
-                                on_click=action_authenticate,
-                            ),
-                            ft.FilledButton(
-                                "Consultar Saldo",
-                                icon=ft.Icons.ACCOUNT_BALANCE_WALLET_ROUNDED,
-                                on_click=action_fetch_balance,
-                            ),
-                            ft.OutlinedButton(
-                                "Testar Ping Deriv",
-                                icon=ft.Icons.NETWORK_CHECK_ROUNDED,
-                                on_click=action_ping_deriv,
-                            ),
-                            ft.OutlinedButton(
-                                "Sincronizar Cache de Símbolos",
-                                icon=ft.Icons.SYNC_ROUNDED,
-                                on_click=action_sync_cache,
-                            ),
-                            ft.FilledButton(
-                                "Ir para Bot Autônomo",
-                                icon=ft.Icons.ROCKET_LAUNCH_ROUNDED,
-                                bgcolor=ft.Colors.CYAN_700,
-                                on_click=lambda _: switch_tab(2),
-                            ),
-                        ],
-                        spacing=12,
-                        wrap=True,
-                    ),
-                ],
-                spacing=12,
-            ),
-            bgcolor=ft.Colors.SURFACE_CONTAINER_HIGHEST,
-            padding=16,
-            border_radius=12,
-        )
-
         log_card = ft.Container(
             content=ft.Column(
                 [
@@ -1165,7 +788,7 @@ async def main(page: ft.Page) -> None:
                         bgcolor=ft.Colors.BLACK,
                         padding=12,
                         border_radius=8,
-                        height=280,
+                        height=380,
                     ),
                 ],
                 spacing=10,
@@ -1190,10 +813,6 @@ async def main(page: ft.Page) -> None:
                         ],
                         spacing=2,
                     ),
-                    kpi_row,
-                    time_sync_card,
-                    live_ticker_card,
-                    quick_actions_card,
                     log_card,
                 ],
                 spacing=18,
@@ -1854,10 +1473,6 @@ async def main(page: ft.Page) -> None:
                     )
                 )
 
-            # Atualização das métricas da sessão no dashboard
-            dash_session_subtext.value = (
-                f"{state['session_cycles']} ciclos | {state['session_wins']}W - {state['session_losses']}L"
-            )
 
         except Exception as exc:
             log_event(f"Erro ao executar Auto-Run: {exc}", "ERROR")
@@ -2189,12 +1804,11 @@ async def main(page: ft.Page) -> None:
             ft.Container(
                 content=ft.Row(
                     [
-                        appbar_api_mode,
-                        appbar_ws_status,
                         appbar_clock_chip,
                         appbar_session_chip,
                         appbar_account_chip,
                         appbar_balance_chip,
+                        appbar_ws_status,
                         ft.IconButton(
                             icon=ft.Icons.REFRESH_ROUNDED,
                             icon_color=ft.Colors.CYAN_300,
